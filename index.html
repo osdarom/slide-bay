@@ -403,15 +403,17 @@ function draw(bad){
     target:css("--target"),targetCar:css("--target-car"),targetInk:css("--target-ink"),
     refuse:css("--refuse"),refuseSoft:css("--refuse-soft"),glass:css("--glass"),tyre:css("--tyre"),
     lamp:css("--lamp"),lampEdge:css("--lamp-edge")};
-  // the car being retrieved (and a refused one) is drawn last, so its glow is never covered by a neighbour
-  const order=cars.map((_,i)=>i).filter(i=>i!==target&&i!==bad);
-  if(bad>=0 && bad!==target) order.push(bad);
+  // the car being retrieved (and a refused one) is drawn last, so its glow is never covered by a neighbour.
+  // `bad` can come from a pasted proposal, so it may name a car that does not exist — then nothing is marked.
+  const badI = bad!=null && Number.isInteger(+bad) && +bad>=0 && +bad<cars.length ? +bad : -1;
+  const order=cars.map((_,i)=>i).filter(i=>i!==target&&i!==badI);
+  if(badI>=0 && badI!==target) order.push(badI);
   order.push(target);
   order.forEach(i=>{
     const c=cars[i];
     const w = c.dir==="H" ? LEN*s : s, h = c.dir==="H" ? s : LEN*s;
     const x = ox+c.c*s, y = oy+c.r*s, L = LEN*s;
-    const isT = i===target, isBad = bad===i, hot = isT||isBad;
+    const isT = i===target, isBad = badI===i, hot = isT||isBad;
     ctx.save(); ctx.translate(x+w/2,y+h/2);
     if(c.dir==="V") ctx.rotate(Math.PI/2);          // local frame: length along x, front toward -x (west, or north when V)
     roundRect(-L/2+pm,-s/2+pm,L-pm*2,s-pm*2,Math.max(2,s*0.08));
@@ -708,15 +710,17 @@ function runProposal(list,label,src){
     say("REFUSED · EMPTY","No moves were proposed","The bay cannot judge an empty proposal.",true); return; }
   const queue=[]; let badAt=-1, badMove=null;
   const snapshot=ser();
-  for(let k=0;k<list.length;k++){
-    const p=list[k], o=occGrid(), i=p.car;
-    if(!(i>=0&&i<cars.length)){ badAt=k; badMove=p; break; }
-    let mv=null;
-    if(p.op==="rotate"){ const rot=legalRotate(o,i); if(!rot){ badAt=k; badMove=p; break; } mv={i,k:"r",to:rot}; }
-    else { const d=p.d>0?1:-1; if(!legalSlide(o,i,d)){ badAt=k; badMove=p; break; } mv={i,k:"s",d}; }
-    applyMove(mv); queue.push(mv);
-  }
-  deser(snapshot);
+  try{                                              // the dry run always ends with the bay restored, whatever was proposed
+    for(let k=0;k<list.length;k++){
+      const p=list[k]||{}, o=occGrid();
+      const i = typeof p.car==="string" && p.car.trim()!=="" ? Number(p.car) : p.car;   // "3" is car 3; null, 1.5, 99 are no car
+      if(!(Number.isInteger(i)&&i>=0&&i<cars.length)){ badAt=k; badMove=p; break; }
+      let mv=null;
+      if(p.op==="rotate"){ const rot=legalRotate(o,i); if(!rot){ badAt=k; badMove=p; break; } mv={i,k:"r",to:rot}; }
+      else { const d=p.d>0?1:-1; if(!legalSlide(o,i,d)){ badAt=k; badMove=p; break; } mv={i,k:"s",d}; }
+      applyMove(mv); queue.push(mv);
+    }
+  } finally { deser(snapshot); }
   if(!queue.length){
     say("REFUSED · ILLEGAL","The first move proposed is not legal",
       "Car "+(badMove&&badMove.car)+" cannot "+(badMove&&badMove.op||"move")+" from where it stands. Nothing was applied.",true);
