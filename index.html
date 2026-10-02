@@ -656,9 +656,17 @@ boardText(),
   let sample=null;
   try{ sample = window.claude&&window.claude.use ? await window.claude.use("sample") : null; }catch(e){}
   if(!sample){ btn.textContent="Copy board for Claude";
-    btn.onclick=async()=>{ try{ await navigator.clipboard.writeText(promptText());
-      say("COPIED","Board and rules are on your clipboard","Paste into Claude, then paste the JSON back with the Paste button that appears.",false);
-      showPaste(); }catch(e){} };
+    // some browsers block the clipboard; then the board is shown in a box to copy by hand — never a silent click
+    btn.onclick=async()=>{
+      if(playing) return;
+      const text=promptText();
+      showPaste();
+      try{ await navigator.clipboard.writeText(text); hidePrompt();
+        say("COPIED","Board and rules are on your clipboard","Paste into Claude, then paste its JSON answer into the box below and press Play it.",false);
+      }catch(e){ showPrompt(text);
+        say("COPY BY HAND","This browser blocked the clipboard","The board and rules are in the box below: select it all, copy, paste into Claude, then paste its JSON answer back and press Play it.",false);
+      }
+    };
     btn.disabled=false; return; }
   btn.disabled=false;
   btn.onclick=async()=>{
@@ -674,6 +682,14 @@ boardText(),
     btn.disabled=false;
   };
 })();
+function showPrompt(text){
+  let d=$("promptBox");
+  if(!d){ d=document.createElement("div"); d.className="bar"; d.id="promptBox"; d.style.marginTop="8px";
+    d.innerHTML='<textarea id="promptOut" rows="6" readonly aria-label="Board and rules for Claude" style="flex:1;min-width:240px;font-family:monospace;font-size:11px;padding:6px;border:1px solid var(--line);border-radius:3px;background:var(--panel-2);color:var(--ink)"></textarea>';
+    $("bSolve").parentElement.after(d); }
+  const t=$("promptOut"); t.value=text; t.focus(); t.select();
+}
+function hidePrompt(){ const d=$("promptBox"); if(d) d.remove(); }
 function showPaste(){
   if($("pasteBox")) return;
   const d=document.createElement("div"); d.className="bar"; d.id="pasteBox"; d.style.marginTop="8px";
