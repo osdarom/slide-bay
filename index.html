@@ -209,6 +209,7 @@ const P={cols:12,rows:9,ncars:16,gap:3,stall:6.83,ms:230,budget:20000};
 const CAR={len:16,wid:6,ref:6.83};
 let cars=[], aisles=[], exitRow=4, target=0, sel=-1;
 let moves=0, turns=0, history=[], log=[], seq=0, playing=false;
+let refusedCar=-1;                                 // a refused car stays red until the next click or key press
 
 /* ---------------- model ---------------- */
 const cellsOf=c => { const out=[];
@@ -374,6 +375,7 @@ function geom(){
 }
 const css=v=>getComputedStyle(document.documentElement).getPropertyValue(v).trim();
 function draw(bad){
+  if(bad===undefined) bad=refusedCar;
   const {s,ox,oy}=geom();
   ctx.clearRect(0,0,cv.width,cv.height);
   ctx.fillStyle=css("--deck"); ctx.fillRect(0,0,cv.width,cv.height);
@@ -503,16 +505,14 @@ addEventListener("keydown",e=>{
   const c=cars[sel], o=occGrid();
   let mv=null;
   if(e.key==="r"||e.key==="R"){ const rot=legalRotate(o,sel); if(rot) mv={i:sel,k:"r",to:rot};
-    else return refuse(sel,"NOT ON A CROSS-AISLE","That car cannot turn here",
-      "A pallet turns only with its centre on a cross-aisle, and the swept footprint must be clear."); }
+    else { const w=whyNot(o,sel,"rotate"); return refuse(sel,w.mark,"This car "+w.why,w.hint); } }
   else {
     const want = {ArrowLeft:["H",-1],ArrowRight:["H",+1],ArrowUp:["V",-1],ArrowDown:["V",+1]}[e.key];
     if(!want) return;
     e.preventDefault();
-    if(want[0]!==c.dir) return refuse(sel,"WRONG AXIS","This car cannot move that way",
-      "A pallet slides along its own length only. To change axis it must reach a cross-aisle and turn.");
-    if(!legalSlide(o,sel,want[1])) return refuse(sel,"BLOCKED","Something is in the way",
-      "The next cell is occupied, or the car is against the wall.");
+    if(want[0]!==c.dir) return refuse(sel,"WRONG AXIS","This car only slides "+(c.dir==="H"?"east–west":"north–south"),
+      "A pallet slides along its own length. To change direction it must reach a cross-aisle (the yellow rows) and turn with R.");
+    if(!legalSlide(o,sel,want[1])){ const w=whyNot(o,sel,"slide",want[1]); return refuse(sel,w.mark,"This car "+w.why,w.hint); }
     mv={i:sel,k:"s",d:want[1]};
   }
   history.push(ser()); if(mv.k==="r") turns++; applyMove(mv); moves++; stats(); draw();
@@ -521,8 +521,40 @@ addEventListener("keydown",e=>{
       "Press New bay to shuffle, or raise the density until it cannot be done.",false); }
 });
 function refuse(i,mark,title,text){
-  draw(i); say(mark,title,text,true);
-  setTimeout(()=>draw(),420);
+  refusedCar=i; say(mark,title,text,true); draw();
+}
+// the refused car stays red until the next thing the user does, so a stranger can see which car it was
+function clearRefusal(){ if(refusedCar>=0){ refusedCar=-1; draw(); } }
+addEventListener("pointerdown",clearRefusal,true);
+addEventListener("keydown",clearRefusal,true);
+// why a move is refused, in plain words, read off the bay as it stands.
+// It only explains a verdict legalSlide / legalRotate has already given; it never decides one.
+const DIRS={H:["west","east"],V:["north","south"]};
+function whyNot(o,i,op,d){
+  if(!(Number.isInteger(i)&&i>=0&&i<cars.length)) return {mark:"NO SUCH CAR",why:"is not a car in this bay",hint:""};
+  const c=cars[i];
+  if(op==="rotate"){
+    const [cr,cc]=centre(c);
+    if(!isAisle(cr)) return {mark:"NOT ON A CROSS-AISLE",why:"cannot turn — its middle is not on a cross-aisle (the yellow rows)",
+      hint:"Slide it until its middle cell sits on a yellow row, then press R."};
+    const nc = c.dir==="H" ? {r:cr-1,c:cc,dir:"V"} : {r:cr,c:cc-1,dir:"H"};     // the footprint legalRotate tests
+    for(const [r,q] of cellsOf(nc)){
+      if(!inB(r,q)) return {mark:"NO ROOM TO TURN",why:"cannot turn — it would swing through the wall",
+        hint:"Slide it away from the wall first."};
+      if(o[r][q]!==-1 && o[r][q]!==i) return {mark:"NO ROOM TO TURN",why:"cannot turn — another car is in the way of its swing",
+        hint:"Turning needs its whole new footprint clear. Move the other car first."};
+    }
+    return {mark:"CANNOT TURN",why:"cannot turn from where it stands",hint:""};
+  }
+  const dir=DIRS[c.dir][d>0?1:0];
+  const [hr,hc] = d>0 ? (c.dir==="H"?[c.r,c.c+LEN]:[c.r+LEN,c.c]) : (c.dir==="H"?[c.r,c.c-1]:[c.r-1,c.c]);
+  if(!inB(hr,hc)){
+    if(hc<0 && hr===exitRow && i!==target) return {mark:"NOT THIS CAR",why:"cannot leave — only the teal car is being retrieved",hint:""};
+    return {mark:"AGAINST THE WALL",why:"cannot slide "+dir+" — it is against the wall",hint:"It can only go the other way."};
+  }
+  if(o[hr][hc]!==-1) return {mark:"BLOCKED",why:"cannot slide "+dir+" — another car is in the way",
+    hint:"Move the car in front first, or go the other way."};
+  return {mark:"CANNOT MOVE",why:"cannot slide "+dir+" from where it stands",hint:""};
 }
 $("bUndo").onclick=()=>{ if(playing||!history.length) return;
   deser(history.pop()); moves=Math.max(0,moves-1); stats(); draw(); };
@@ -544,7 +576,7 @@ $("bSolve").onclick=()=>{
         res.reason==="BLOCKED" ? "Every legal sequence was tried and none frees the car. Fewer cars, or cross-aisles closer together."
         : "The bay may be solvable, but not within the search budget. That is a real cost: a controller has the same problem.",
         true);
-      draw(target); setTimeout(()=>draw(),700);
+      refusedCar=target; draw();
       return;
     }
     playMoves(res.moves,()=>{
@@ -708,31 +740,36 @@ function showPaste(){
 function runProposal(list,label,src){
   if(!Array.isArray(list)||!list.length){
     say("REFUSED · EMPTY","No moves were proposed","The bay cannot judge an empty proposal.",true); return; }
-  const queue=[]; let badAt=-1, badMove=null;
+  const queue=[]; let badAt=-1, badMove=null, badI=-1, badWhy=null;
   const snapshot=ser();
   try{                                              // the dry run always ends with the bay restored, whatever was proposed
     for(let k=0;k<list.length;k++){
       const p=list[k]||{}, o=occGrid();
       const i = typeof p.car==="string" && p.car.trim()!=="" ? Number(p.car) : p.car;   // "3" is car 3; null, 1.5, 99 are no car
-      if(!(Number.isInteger(i)&&i>=0&&i<cars.length)){ badAt=k; badMove=p; break; }
+      if(!(Number.isInteger(i)&&i>=0&&i<cars.length)){ badAt=k; badMove=p; badWhy=whyNot(o,i); break; }
       let mv=null;
-      if(p.op==="rotate"){ const rot=legalRotate(o,i); if(!rot){ badAt=k; badMove=p; break; } mv={i,k:"r",to:rot}; }
-      else { const d=p.d>0?1:-1; if(!legalSlide(o,i,d)){ badAt=k; badMove=p; break; } mv={i,k:"s",d}; }
+      if(p.op==="rotate"){ const rot=legalRotate(o,i); if(!rot){ badAt=k; badMove=p; badI=i; badWhy=whyNot(o,i,"rotate"); break; } mv={i,k:"r",to:rot}; }
+      else { const d=p.d>0?1:-1; if(!legalSlide(o,i,d)){ badAt=k; badMove=p; badI=i; badWhy=whyNot(o,i,"slide",d); break; } mv={i,k:"s",d}; }
       applyMove(mv); queue.push(mv);
     }
   } finally { deser(snapshot); }
+  // the refusal names the car and the reason; the car itself stays red on the board
+  const what = !badWhy ? "" : badI>=0 ? (badI===target?"the teal car":"car "+badI)+" "+badWhy.why
+    : "car "+(badMove.car==null||badMove.car===""?"(none given)":badMove.car)+" is not a car in this bay";
+  const red = badI>=0 ? " The car is shown in red." : "";
   if(!queue.length){
-    say("REFUSED · ILLEGAL","The first move proposed is not legal",
-      "Car "+(badMove&&badMove.car)+" cannot "+(badMove&&badMove.op||"move")+" from where it stands. Nothing was applied.",true);
-    record(src,"illegal"); draw(badMove&&badMove.car); setTimeout(()=>draw(),700); return;
+    say("REFUSED · ILLEGAL",what.charAt(0).toUpperCase()+what.slice(1),
+      "That was the first move proposed, so nothing was applied."+red,true);
+    record(src,"illegal"); refusedCar=badI; draw(); return;
   }
   playMoves(queue,()=>{
     if(atExit()){ record(src,"out");
       say("OUT · "+label,"Retrieved in "+moves+" moves","Proposal accepted in full.",false); }
     else if(badAt>=0){ record(src,"illegal at "+badAt);
-      say("REFUSED · ILLEGAL AT MOVE "+(badAt+1),queue.length+" moves stood, then one did not",
-        "Car "+badMove.car+" could not "+(badMove.op||"move")+". The bay stopped there rather than pretend.",true);
-      draw(badMove.car); setTimeout(()=>draw(),700); }
+      say("REFUSED · ILLEGAL AT MOVE "+(badAt+1),"Move "+(badAt+1)+": "+what,
+        (queue.length===1?"The first move stood and was":"The first "+queue.length+" moves stood and were")+
+        " played; the bay stopped there rather than pretend."+red,true);
+      refusedCar=badI; draw(); }
     else { record(src,"short");
       say("REFUSED · SHORT","All "+queue.length+" moves were legal, but the car is still inside",
         "A legal sequence is not the same as a solution.",true); }
