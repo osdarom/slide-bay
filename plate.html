@@ -1,0 +1,924 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#faf9f5;color:#141413}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>Plate Throughput</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap">
+<style>
+:root{
+  --bg:#E4E1DB; --panel:#F6F4F0; --panel-2:#EDEAE4;
+  --ink:#1C1E21; --muted:#6C6962; --faint:#9A968E; --line:#D2CEC6;
+  --concrete:#8B887F; --concrete-hi:#9D9A91;
+  --void:#3B3833; --column:#24221F;
+  --car:#E9E7E2; --car-line:#B9B5AD; --target:#2E6E7E;
+  --refuse:#A8331F; --refuse-soft:#E8C9C2;
+  --stripe-old:#B99A2E;
+  --focus:#2E6E7E;
+  --shadow:0 1px 2px rgba(28,30,33,.06),0 4px 14px rgba(28,30,33,.05);
+}
+@media (prefers-color-scheme: dark){ :root:not([data-theme="light"]){
+  --bg:#17191C; --panel:#1F2225; --panel-2:#24272B;
+  --ink:#EDEAE4; --muted:#9E9A93; --faint:#6E6A64; --line:#33373C;
+  --concrete:#55534E; --concrete-hi:#63615B;
+  --void:#121315; --column:#0C0D0E;
+  --car:#D8D5CF; --car-line:#8E8A84; --target:#5FB6C9;
+  --refuse:#E0604A; --refuse-soft:#4A2620;
+  --stripe-old:#9A8130;
+  --focus:#5FB6C9;
+  --shadow:0 1px 2px rgba(0,0,0,.3),0 4px 14px rgba(0,0,0,.25);
+}}
+:root[data-theme="dark"]{
+  --bg:#17191C; --panel:#1F2225; --panel-2:#24272B;
+  --ink:#EDEAE4; --muted:#9E9A93; --faint:#6E6A64; --line:#33373C;
+  --concrete:#55534E; --concrete-hi:#63615B;
+  --void:#121315; --column:#0C0D0E;
+  --car:#D8D5CF; --car-line:#8E8A84; --target:#5FB6C9;
+  --refuse:#E0604A; --refuse-soft:#4A2620;
+  --stripe-old:#9A8130;
+  --focus:#5FB6C9;
+  --shadow:0 1px 2px rgba(0,0,0,.3),0 4px 14px rgba(0,0,0,.25);
+}
+*{box-sizing:border-box}
+html,body{height:100%}
+body{
+  margin:0;background:var(--bg);color:var(--ink);
+  font-family:"IBM Plex Sans",system-ui,-apple-system,sans-serif;
+  font-size:14px;line-height:1.45;
+}
+.wrap{min-height:100%;display:flex;flex-direction:column;padding:0 16px;padding-block:14px 20px;max-width:1440px;margin:0 auto;gap:12px}
+header{display:flex;flex-wrap:wrap;align-items:baseline;gap:8px 16px}
+h1{font-size:19px;font-weight:600;letter-spacing:-.01em;margin:0}
+.sub{color:var(--muted);font-size:12.5px;margin:0}
+.eyebrow{font-family:"IBM Plex Mono",ui-monospace,monospace;font-size:10.5px;letter-spacing:.09em;text-transform:uppercase;color:var(--faint)}
+
+.main{display:grid;grid-template-columns:minmax(0,1fr) 336px;gap:12px;align-items:start}
+@media (max-width:980px){ .main{grid-template-columns:minmax(0,1fr)} }
+
+.stage{background:var(--panel);border:1px solid var(--line);border-radius:4px;padding:12px;display:flex;flex-direction:column;gap:10px;box-shadow:var(--shadow)}
+canvas{width:100%;height:auto;display:block;background:var(--void);border-radius:2px;touch-action:none}
+
+.verdict{min-height:58px;border-radius:3px;padding:9px 11px;background:var(--panel-2);border:1px solid var(--line);display:flex;gap:11px;align-items:flex-start}
+.verdict.refused{background:var(--refuse-soft);border-color:var(--refuse)}
+.vmark{font-family:"IBM Plex Mono",monospace;font-size:11px;font-weight:600;letter-spacing:.07em;padding:2px 7px;border-radius:2px;white-space:nowrap;background:var(--ink);color:var(--panel)}
+.verdict.refused .vmark{background:var(--refuse);color:#fff}
+.vbody{min-width:0}
+.vtitle{font-weight:600;font-size:13.5px}
+.vtext{color:var(--muted);font-size:12.5px;margin-top:1px}
+.verdict.refused .vtext{color:var(--refuse)}
+
+.row{display:flex;flex-wrap:wrap;gap:7px}
+button{
+  font:inherit;font-size:12.5px;font-weight:500;color:var(--ink);background:var(--panel-2);
+  border:1px solid var(--line);border-radius:3px;padding:7px 11px;cursor:pointer;
+}
+button:hover{background:var(--bg)}
+button:focus-visible{outline:2px solid var(--focus);outline-offset:1px}
+button:disabled{opacity:.45;cursor:not-allowed}
+button.primary{background:var(--ink);color:var(--panel);border-color:var(--ink)}
+button.primary:hover{opacity:.88;background:var(--ink)}
+button.warn{border-color:var(--refuse);color:var(--refuse)}
+
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:4px;box-shadow:var(--shadow)}
+.panel + .panel{margin-top:12px}
+.phead{padding:9px 12px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;align-items:center;gap:8px}
+.pbody{padding:11px 12px;display:flex;flex-direction:column;gap:10px}
+
+.scores{display:grid;grid-template-columns:1fr 1fr;gap:1px;background:var(--line)}
+.score{background:var(--panel);padding:10px 12px}
+.score .k{font-family:"IBM Plex Mono",monospace;font-size:9.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--faint)}
+.score .v{font-family:"IBM Plex Mono",monospace;font-size:21px;font-weight:600;font-variant-numeric:tabular-nums;margin-top:2px}
+.score .u{font-size:11px;color:var(--muted);font-weight:400}
+.score.bad .v{color:var(--refuse)}
+
+label.ctl{display:block;font-size:12px}
+.ctl .lab{display:flex;justify-content:space-between;align-items:baseline;gap:8px;margin-bottom:3px}
+.ctl .nm{color:var(--ink)}
+.ctl .val{font-family:"IBM Plex Mono",monospace;font-size:11.5px;color:var(--muted);font-variant-numeric:tabular-nums}
+input[type=range]{width:100%;accent-color:var(--focus);margin:0}
+input[type=range]:focus-visible{outline:2px solid var(--focus);outline-offset:3px}
+.chk{display:flex;gap:7px;align-items:flex-start;font-size:12px}
+.chk input{margin:2px 0 0;accent-color:var(--focus)}
+.chk .hint{display:block}
+.stage + .panel{margin-top:12px}
+.hint{color:var(--faint);font-size:11px;line-height:1.35;margin-top:2px}
+
+.meter{display:flex;flex-direction:column;gap:5px}
+.mbar{position:relative;height:9px;background:var(--panel-2);border:1px solid var(--line);border-radius:2px;overflow:hidden}
+.mbar i{position:absolute;top:0;bottom:0;left:0;display:block;background:var(--ink)}
+.mbar.over i{background:var(--refuse)}
+.mlab{display:flex;justify-content:space-between;gap:8px;font-family:"IBM Plex Mono",monospace;font-size:11px;color:var(--muted);font-variant-numeric:tabular-nums}
+.mlab b{font-weight:600;color:var(--ink)}
+.mbar.over ~ .mlab b{color:var(--refuse)}
+.asum{font-size:11px;color:var(--muted);line-height:1.5;margin:6px 0 0;padding-left:16px}
+.asum li{margin-bottom:3px}
+.legend{display:flex;flex-wrap:wrap;gap:4px 14px;font-size:11.5px;color:var(--muted)}
+.legend span{display:flex;align-items:center;gap:5px}
+.sw{width:11px;height:11px;border-radius:1px;border:1px solid var(--car-line);flex:none}
+
+table{width:100%;border-collapse:collapse;font-size:11.5px;font-family:"IBM Plex Mono",monospace;font-variant-numeric:tabular-nums}
+th{text-align:left;font-weight:500;color:var(--faint);font-size:9.5px;letter-spacing:.07em;text-transform:uppercase;padding:0 6px 5px 0;position:sticky;top:0;background:var(--panel)}
+td{padding:3px 6px 3px 0;border-top:1px solid var(--line);white-space:nowrap}
+td.r{color:var(--refuse)}
+.logwrap{max-height:190px;overflow:auto}
+
+select{width:100%;font:inherit;font-size:12px;padding:5px 7px;border:1px solid var(--line);border-radius:3px;background:var(--panel-2);color:var(--ink)}
+select:focus-visible{outline:2px solid var(--focus);outline-offset:1px}
+textarea{width:100%;font-family:"IBM Plex Mono",monospace;font-size:11px;padding:7px;border:1px solid var(--line);border-radius:3px;background:var(--panel-2);color:var(--ink);resize:vertical}
+textarea:focus-visible{outline:2px solid var(--focus);outline-offset:-1px}
+details summary{cursor:pointer;font-size:12px;color:var(--muted);padding:2px 0}
+details summary:focus-visible{outline:2px solid var(--focus)}
+.foot{color:var(--faint);font-size:11px;line-height:1.5}
+.foot a{color:var(--muted)}
+@media (prefers-reduced-motion:reduce){*{animation-duration:.01ms!important;transition-duration:.01ms!important}}
+</style>
+
+<div class="wrap">
+  <header>
+    <h1>Plate Throughput</h1>
+    <p class="sub">A re-striped parking plate with no drive aisles. Empty cells are the only slack &mdash; take too many away and a car can never leave.</p>
+    <span class="eyebrow" style="margin-left:auto">A2 &middot; flow &middot; the re-sorted garage</span>
+  </header>
+
+  <div class="main">
+    <div>
+    <div class="stage">
+      <canvas id="cv" width="900" height="560" aria-label="Parking plate simulation"></canvas>
+
+      <div class="verdict" id="verdict">
+        <span class="vmark" id="vmark">READY</span>
+        <div class="vbody">
+          <div class="vtitle" id="vtitle">Press Retrieve a car</div>
+          <div class="vtext" id="vtext">The plate opens at 6&prime;10&Prime; stalls &mdash; the A1 re-striped dimension. Watch an empty cell walk round to free the requested car.</div>
+        </div>
+      </div>
+
+      <div class="row">
+        <button class="primary" id="bStep">Retrieve a car</button>
+        <button id="bRun">Run 40 retrievals</button>
+        <button id="bReset">Reset plate</button>
+        <button id="bSweep">Sweep stall width</button>
+        <span style="flex:1"></span>
+        <label class="chk" for="cAnim" style="align-items:center;margin-right:4px"><input type="checkbox" id="cAnim" checked><span>Play it out</span></label>
+        <input type="range" id="cMs" min="8" max="160" step="4" value="55" style="width:88px" aria-label="Playback speed" title="Playback speed">
+        <button id="bTheme" title="Toggle theme">Theme</button>
+      </div>
+
+      <div class="legend">
+        <span><i class="sw" style="background:var(--car)"></i>parked car</span>
+        <span><i class="sw" style="background:var(--void);border-color:var(--void)"></i>empty cell &mdash; the slack</span>
+        <span><i class="sw" style="background:var(--column);border-color:var(--column)"></i>structural column</span>
+        <span><i class="sw" style="background:var(--target);border-color:var(--target)"></i>requested car</span>
+        <span><i class="sw" style="background:var(--refuse);border-color:var(--refuse)"></i>refused</span>
+        <span><i class="sw" style="background:var(--stripe-old);border-color:var(--stripe-old)"></i>charge point</span>
+        <span><i class="sw" style="background:#D8A69C;border-color:var(--refuse)"></i>below dispatch floor</span>
+      </div>
+    </div>
+    <div class="panel">
+        <div class="phead"><strong style="font-size:12.5px">Trace</strong>
+          <span class="row" style="gap:5px"><button id="bCopyLog" style="padding:3px 8px;font-size:11px">Copy</button><button id="bClear" style="padding:3px 8px;font-size:11px">Clear</button></span></div>
+        <div class="pbody" style="padding-top:8px">
+          <div id="sweepWrap" hidden style="margin-bottom:10px">
+            <div class="eyebrow" style="margin-bottom:4px">Stall-width sweep &middot; 50 retrievals each</div>
+            <table><thead><tr><th>Stall</th><th>Refused</th><th>Mean moves</th></tr></thead><tbody id="sweepb"></tbody></table>
+          </div>
+          <div class="logwrap">
+            <table><thead><tr><th>#</th><th>Src</th><th>Dist</th><th>Moves</th><th>Verdict</th></tr></thead><tbody id="logb"></tbody></table>
+          </div>
+        </div>
+    </div>
+    </div>
+
+    <div>
+      <div class="panel">
+        <div class="phead"><strong style="font-size:12.5px">Verdict</strong><span class="eyebrow" id="runs">0 retrievals</span></div>
+        <div class="scores">
+          <div class="score"><div class="k">Throughput</div><div class="v"><span id="sThru">&mdash;</span> <span class="u">/hr</span></div></div>
+          <div class="score" id="scRef"><div class="k">Refused</div><div class="v"><span id="sRef">0</span> <span class="u" id="sRefPct"></span></div></div>
+          <div class="score"><div class="k">Mean moves</div><div class="v" id="sMoves">&mdash;</div></div>
+          <div class="score"><div class="k">Density</div><div class="v"><span id="sDens">&mdash;</span> <span class="u">%</span></div></div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="phead"><strong style="font-size:12.5px">Propose a layout</strong><span class="eyebrow">the loop</span></div>
+        <div class="pbody">
+          <div class="row">
+            <button id="pHeur">Suggest next move</button>
+            <button id="pAI">Ask Claude</button>
+          </div>
+          <div class="hint" id="aiHint">The built-in proposer always works. &ldquo;Ask Claude&rdquo; appears when the page can reach a model; otherwise use the copy-paste ritual below.</div>
+          <details>
+            <summary>Prompt ritual (works anywhere)</summary>
+            <div style="display:flex;flex-direction:column;gap:7px;margin-top:7px">
+              <button id="bCopy">Copy board state &amp; prompt</button>
+              <textarea id="paste" rows="3" placeholder="Paste a model's JSON proposal here, then press Apply"></textarea>
+              <button id="bApply">Apply pasted proposal</button>
+            </div>
+          </details>
+        </div>
+      </div>
+
+
+      <div class="panel">
+        <div class="phead"><strong style="font-size:12.5px">Charge budget</strong><span class="eyebrow">second behaviour</span></div>
+        <div class="pbody">
+          <label class="chk" for="cChg"><input type="checkbox" id="cChg">
+            <span>Wire in the charge layer<span class="hint" style="margin:0">Cars carry a state of charge. Below the dispatch floor a car is stored but cannot be sent &mdash; a fourth way to be refused.</span></span></label>
+
+          <div class="meter">
+            <div class="mbar" id="mBar"><i id="mFill" style="width:0%"></i></div>
+            <div class="mlab"><span><b id="mDraw">&mdash;</b> of <span id="mCap">&mdash;</span> kW</span><span id="mState">&mdash;</span></div>
+          </div>
+
+          <div class="scores" style="margin:2px -12px 0">
+            <div class="score"><div class="k">Charge points</div><div class="v" id="sPts">&mdash;</div></div>
+            <div class="score"><div class="k">Stored : charged</div><div class="v" id="sRatio">&mdash;</div></div>
+            <div class="score"><div class="k">Below floor</div><div class="v" id="sFlat">&mdash;</div></div>
+            <div class="score"><div class="k">Mean charge</div><div class="v"><span id="sSoc">&mdash;</span> <span class="u">%</span></div></div>
+          </div>
+
+          <button id="bPlace">Re-place charge points</button>
+
+          <label class="ctl" for="cKva"><span class="lab"><span class="nm">Service capacity</span><span class="val" id="vKva"></span></span>
+            <input type="range" id="cKva" min="150" max="2500" step="50" value="750"></label>
+          <label class="ctl" for="cPts"><span class="lab"><span class="nm">Charge points wanted</span><span class="val" id="vPts"></span></span>
+            <input type="range" id="cPts" min="0" max="120" step="1" value="55"></label>
+          <label class="ctl" for="cSpace"><span class="lab"><span class="nm">Min spacing between points</span><span class="val" id="vSpace"></span></span>
+            <input type="range" id="cSpace" min="0" max="3" step="1" value="1"></label>
+          <label class="ctl" for="cDcShare"><span class="lab"><span class="nm">DC fast share</span><span class="val" id="vDcShare"></span></span>
+            <input type="range" id="cDcShare" min="0" max="100" step="5" value="0"></label>
+          <label class="ctl" for="cSocMin"><span class="lab"><span class="nm">Dispatch floor</span><span class="val" id="vSocMin"></span></span>
+            <input type="range" id="cSocMin" min="0" max="80" step="5" value="30"></label>
+
+          <details>
+            <summary>Every assumption in this layer</summary>
+            <ul class="asum">
+              <li><b>kVA is not kW.</b> Capacity is <span id="aKva"></span> kVA &times; power factor <span id="aPf"></span> = <span id="aCap"></span> kW real. Chargers are assumed near-unity PF.</li>
+              <li><b>Rated output is not draw.</b> Level 2 at <span id="aL2"></span> kW / <span id="aE1"></span> efficiency; DC fast at <span id="aDc"></span> kW / <span id="aE2"></span>. The service sees the larger number.</li>
+              <li><b>No diversity factor is assumed.</b> Worst case is every point at full rate. Actual draw falls out of the fleet's own charge state instead of being discounted by a rule of thumb.</li>
+              <li><b>DC tapers above <span id="aTap"></span>% charge</b> to <span id="aTapF"></span> of rated. Level 2 does not taper.</li>
+              <li><b>Battery is <span id="aBatt"></span> kWh</b> for every car. Real fleets are mixed.</li>
+              <li><b>Fire separation is a spacing rule, not a standard.</b> Charge points keep <span id="aSp"></span> cells clear of each other (Chebyshev). NFPA 88A and FM guidance are more complex than one number.</li>
+              <li><b>The cap is hard.</b> Over budget, the lowest-charge cars are served first and the rest simply do not charge. A real depot would use load management.</li>
+              <li><b>Charging only advances while retrievals run.</b> There is no idle overnight window in this model &mdash; which is exactly when a real garage would do most of its charging.</li>
+            </ul>
+          </details>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="phead"><strong style="font-size:12.5px">Physical parameters</strong><span class="eyebrow">all tweakable</span></div>
+        <div class="pbody">
+          <label class="ctl" for="cW"><span class="lab"><span class="nm">Stall width</span><span class="val" id="vW"></span></span>
+            <input type="range" id="cW" min="5.5" max="9" step="0.083" value="6.83"></label>
+          <div class="hint">8&prime;6&Prime; is the human stall, sized by the door swing. 6&prime;10&Prime; is the A1 re-striped bay. Below the swing threshold a car can no longer turn without a free cell beside it.</div>
+
+          <label class="ctl" for="cE"><span class="lab"><span class="nm">Empty cells</span><span class="val" id="vE"></span></span>
+            <input type="range" id="cE" min="1" max="60" step="1" value="22"></label>
+
+          <label class="ctl" for="cCols"><span class="lab"><span class="nm">Plate width</span><span class="val" id="vCols"></span></span>
+            <input type="range" id="cCols" min="8" max="30" step="1" value="20"></label>
+
+          <label class="ctl" for="cRows"><span class="lab"><span class="nm">Plate depth</span><span class="val" id="vRows"></span></span>
+            <input type="range" id="cRows" min="6" max="18" step="1" value="11"></label>
+
+          <label class="ctl" for="cBay"><span class="lab"><span class="nm">Column bay</span><span class="val" id="vBay"></span></span>
+            <input type="range" id="cBay" min="3" max="9" step="1" value="5"></label>
+
+          <label class="ctl" for="cBudget"><span class="lab"><span class="nm">Move budget</span><span class="val" id="vBudget"></span></span>
+            <input type="range" id="cBudget" min="20" max="400" step="10" value="160"></label>
+          <div class="hint">Moves allowed before the retrieval is refused as too slow. One move = one car sliding one bay.</div>
+
+          <label class="ctl" for="cSec"><span class="lab"><span class="nm">Seconds per move</span><span class="val" id="vSec"></span></span>
+            <input type="range" id="cSec" min="2" max="20" step="1" value="6"></label>
+
+          <label class="ctl" for="cWall"><span class="lab"><span class="nm">Structure</span></span>
+            <select id="cWall">
+              <option value="none">Isolated columns on the bay grid</option>
+              <option value="wall">Shear wall with one opening</option>
+              <option value="sealed">Sealed bay &mdash; no way through</option>
+            </select></label>
+          <div class="hint">A wall with a single opening lets a car block the only door it needs. A sealed bay cuts the far field off from the exit entirely.</div>
+
+          <label class="ctl" for="cDisp"><span class="lab"><span class="nm">Who is retrieved</span></span>
+            <select id="cDisp">
+              <option value="named">A named car &mdash; yours, wherever it is</option>
+              <option value="fleet">Any car &mdash; fleet takes the cheapest</option>
+            </select></label>
+          <div class="hint">A robotaxi dispatcher does not want <em>your</em> car, it wants <em>a</em> car. Switching this is the difference between a garage that stores property and one that stores stock.</div>
+
+          <label class="ctl" for="cPark"><span class="lab"><span class="nm">Where an arriving car parks</span></span>
+            <select id="cPark">
+              <option value="random">Wherever there is room</option>
+              <option value="deep">Deepest free bay &mdash; stock pushed to the back</option>
+              <option value="near">Nearest free bay &mdash; first come, first bay</option>
+            </select></label>
+          <div class="hint">The toy cannot know this. It is an operations decision, and it changes the fleet result more than any physical law in the model does.</div>
+
+          <label class="chk" for="cSwing"><input type="checkbox" id="cSwing" checked>
+            <span>Enforce turning clearance<span class="hint" style="margin:0">A car changing direction needs a free cell beside it. Only binds below the swing threshold.</span></span></label>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <p class="foot">Retrieval follows the escort method for puzzle-based storage systems (Gue &amp; Kim, 2007): an empty cell is walked to the bay ahead of the requested car and swapped, repeatedly, until the car reaches the exit. Refusal is computed, not scored &mdash; a locked plate is one where no empty can reach that bay.</p>
+</div>
+
+<script>
+(function(){
+"use strict";
+const EMPTY=0, CAR=1, COL=2;
+const $=id=>document.getElementById(id);
+const cv=$("cv"), ctx=cv.getContext("2d");
+
+const P={anim:true,ms:55,charge:false,kva:750,pf:0.98,pts:55,space:1,dcShare:0,l2kw:11,dckw:150,effL2:0.91,effDC:0.95,socMin:30,taper:80,taperF:0.40,batt:75,dispatch:"named",park:"random",wall:"none",W:6.83,empties:22,cols:20,rows:11,bay:5,budget:160,sec:6,swing:true};
+const SWING_THRESHOLD=7.5, TURN_COST=2, STALL_LEN=18;
+
+let g=[], soc=[], chg=[], film=null, playing=false, exitCell={r:0,c:0}, stats={n:0,ref:0,moves:0}, log=[], seq=0;
+let anim=null, hi=null;
+
+/* ---------- plate ---------- */
+function wallCol(){ return Math.max(3,Math.round(P.cols*0.65)); }
+function isCol(r,c){
+  const b=P.bay;
+  const grid=(r%b===Math.floor(b/2)) && (c%b===Math.floor(b/2)) && r>0 && r<P.rows-1;
+  if(P.wall!=="none" && c===wallCol()){
+    if(P.wall==="sealed") return true;            // no way through: everything beyond is ENCLOSED
+    return r!==exitCell.r;                        // one opening, on the exit row
+  }
+  return grid;
+}
+function placeChargers(){
+  for(let r=0;r<P.rows;r++)for(let c=0;c<P.cols;c++) chg[r][c]=0;
+  const cand=[];
+  for(let r=0;r<P.rows;r++)for(let c=0;c<P.cols;c++) if(g[r][c]!==COL) cand.push([r,c]);
+  cand.sort((a,b)=>dist(a)-dist(b));                    // charge points cluster toward the exit
+  const nDC=Math.round(P.pts*P.dcShare/100);
+  let placed=0;
+  for(const [r,c] of cand){
+    if(placed>=P.pts) break;
+    let clash=false;                                    // EV fire separation, Chebyshev
+    for(let dr=-P.space;dr<=P.space&&!clash;dr++)
+      for(let dc=-P.space;dc<=P.space&&!clash;dc++){
+        const nr=r+dr,nc=c+dc;
+        if(inB(nr,nc)&&chg[nr][nc]) clash=true;
+      }
+    if(clash) continue;
+    chg[r][c] = placed<nDC ? 2 : 1;
+    placed++;
+  }
+  return placed;
+}
+function chargerCounts(){
+  let l2=0,dc=0;
+  for(let r=0;r<P.rows;r++)for(let c=0;c<P.cols;c++){ if(chg[r][c]===1)l2++; else if(chg[r][c]===2)dc++; }
+  return {l2,dc,n:l2+dc};
+}
+function capacityKW(){ return P.kva*P.pf; }
+function worstCaseKW(){
+  const {l2,dc}=chargerCounts();
+  return l2*(P.l2kw/P.effL2) + dc*(P.dckw/P.effDC);
+}
+function currentKW(){
+  let kw=0;
+  for(let r=0;r<P.rows;r++)for(let c=0;c<P.cols;c++){
+    if(!chg[r][c] || g[r][c]!==CAR || soc[r][c]>=100) continue;
+    if(chg[r][c]===2){ const t = soc[r][c]>P.taper ? P.taperF : 1; kw += P.dckw*t/P.effDC; }
+    else kw += P.l2kw/P.effL2;
+  }
+  return kw;
+}
+function flatCars(){
+  let n=0;
+  for(let r=0;r<P.rows;r++)for(let c=0;c<P.cols;c++)
+    if(g[r][c]===CAR && soc[r][c]<P.socMin) n++;
+  return n;
+}
+function advanceCharge(seconds){
+  if(!P.charge) return;
+  const budget=capacityKW(); let used=0;
+  const pts=[];
+  for(let r=0;r<P.rows;r++)for(let c=0;c<P.cols;c++)
+    if(chg[r][c] && g[r][c]===CAR && soc[r][c]<100) pts.push([r,c]);
+  pts.sort((a,b)=>soc[a[0]][a[1]]-soc[b[0]][b[1]]);     // lowest charge served first
+  for(const [r,c] of pts){
+    const t = chg[r][c]===2 && soc[r][c]>P.taper ? P.taperF : 1;
+    const draw = (chg[r][c]===2 ? P.dckw/P.effDC : P.l2kw/P.effL2) * t;
+    if(used+draw>budget) break;                         // hard cap: the rest simply do not charge
+    used+=draw;
+    const kwhIn = (chg[r][c]===2?P.dckw:P.l2kw)*t*(seconds/3600);
+    soc[r][c] = Math.min(100, soc[r][c] + kwhIn/P.batt*100);
+  }
+}
+function build(){
+  exitCell={r:Math.floor(P.rows/2),c:0};
+  g=[];
+  for(let r=0;r<P.rows;r++){ const row=[];
+    for(let c=0;c<P.cols;c++) row.push(isCol(r,c)?COL:CAR);
+    g.push(row);
+  }
+  g[exitCell.r][exitCell.c]=EMPTY;
+  soc=[]; chg=[];
+  for(let r=0;r<P.rows;r++){ soc.push(new Array(P.cols).fill(0)); chg.push(new Array(P.cols).fill(0)); }
+  for(let r=0;r<P.rows;r++)for(let c=0;c<P.cols;c++)
+    if(g[r][c]===CAR) soc[r][c]=15+Math.random()*50;
+  placeChargers();
+  const free=[];
+  for(let r=0;r<P.rows;r++)for(let c=0;c<P.cols;c++)
+    if(g[r][c]===CAR && !(r===exitCell.r&&c===exitCell.c)) free.push([r,c]);
+  for(let i=free.length-1;i>0;i--){const j=(Math.random()*(i+1))|0;[free[i],free[j]]=[free[j],free[i]];}
+  const want=Math.min(P.empties,free.length);
+  for(let i=0;i<want;i++) g[free[i][0]][free[i][1]]=EMPTY;
+  stats={n:0,ref:0,moves:0}; log=[]; seq=0; hi=null;
+  renderLog(); draw(); score();
+}
+const inB=(r,c)=>r>=0&&r<P.rows&&c>=0&&c<P.cols;
+const N4=[[-1,0],[1,0],[0,-1],[0,1]];
+
+/* route for the requested car: columns block, cars do not (they get moved) */
+function routeToExit(sr,sc){
+  const prev=new Map(), q=[[sr,sc]], seen=new Set([sr+","+sc]);
+  while(q.length){
+    const [r,c]=q.shift();
+    if(r===exitCell.r&&c===exitCell.c){
+      const path=[]; let k=r+","+c;
+      while(k!==sr+","+sc){ const [a,b]=k.split(",").map(Number); path.push([a,b]); k=prev.get(k); }
+      return path.reverse();
+    }
+    for(const [dr,dc] of N4){ const nr=r+dr,nc=c+dc,key=nr+","+nc;
+      if(!inB(nr,nc)||seen.has(key)||g[nr][nc]===COL) continue;
+      seen.add(key); prev.set(key,r+","+c); q.push([nr,nc]);
+    }
+  }
+  return null;
+}
+/* walk an empty cell to `dest`; the requested car's cell is immovable */
+function snap(car){ if(film) film.push({G:g.map(r=>r.slice()),car:car?car.slice():null}); }
+function escortTo(dr_,dc_,keepR,keepC,apply){
+  const prev=new Map(), q=[[dr_,dc_]], seen=new Set([dr_+","+dc_]);
+  while(q.length){
+    const [r,c]=q.shift();
+    if(g[r][c]===EMPTY){
+      const chain=[]; let k=r+","+c;
+      while(k!==dr_+","+dc_){ const [a,b]=k.split(",").map(Number); chain.push([a,b]); k=prev.get(k); }
+      chain.reverse(); chain.unshift([r,c]);
+      if(apply) for(let i=0;i<chain.length-1;i++){
+        const [ar,ac]=chain[i],[br,bc]=chain[i+1];
+        g[ar][ac]=g[br][bc]; g[br][bc]=EMPTY;
+        snap(keepR===undefined?null:[keepR,keepC]);
+      }
+      return chain.length-1;
+    }
+    for(const [ddr,ddc] of N4){ const nr=r+ddr,nc=c+ddc,key=nr+","+nc;
+      if(!inB(nr,nc)||seen.has(key)||g[nr][nc]===COL) continue;
+      if(nr===keepR&&nc===keepC) continue;
+      seen.add(key); prev.set(key,r+","+c); q.push([nr,nc]);
+    }
+  }
+  return Infinity;
+}
+function freeSwing(r,c,dr,dc){
+  const perp = dr!==0 ? [[0,-1],[0,1]] : [[-1,0],[1,0]];
+  for(const [pr,pc] of perp){ const nr=r+pr,nc=c+pc;
+    if(inB(nr,nc)&&g[nr][nc]===EMPTY) return true; }
+  return false;
+}
+function pickCar(){
+  const cars=[];
+  for(let r=0;r<P.rows;r++)for(let c=0;c<P.cols;c++) if(g[r][c]===CAR) cars.push([r,c]);
+  if(!cars.length) return null;
+  if(P.dispatch==="named") return cars[(Math.random()*cars.length)|0];
+  const ok = P.charge ? cars.filter(c=>soc[c[0]][c[1]]>=P.socMin) : cars;
+  if(P.charge && !ok.length) return cars[(Math.random()*cars.length)|0];
+  cars.length=0; cars.push(...ok);
+  let best=Infinity, pool=[];                       // fleet dispatch: any car will do, take the cheapest
+  for(const c of cars){ const d=dist(c); if(d<best){best=d;pool=[c];} else if(d===best) pool.push(c); }
+  return pool[(Math.random()*pool.length)|0];
+}
+
+/* ---------- the retrieval, and the three refusals ---------- */
+function refill(){                                   // a new car arrives, so density is held constant
+  const spots=[];
+  for(let r=0;r<P.rows;r++)for(let c=0;c<P.cols;c++)
+    if(g[r][c]===EMPTY && !(r===exitCell.r&&c===exitCell.c)) spots.push([r,c]);
+  if(spots.length<=P.empties) return;
+  let p;
+  if(P.park==="deep"){        let b=-1; for(const q of spots){const d=dist(q); if(d>b){b=d;p=q;}} }
+  else if(P.park==="near"){   let b=Infinity; for(const q of spots){const d=dist(q); if(d<b){b=d;p=q;}} }
+  else { p=spots[(Math.random()*spots.length)|0]; }
+  g[p[0]][p[1]]=CAR; soc[p[0]][p[1]]=15+Math.random()*50;
+}
+function retrieve(){
+  const car=pickCar();
+  if(!car) return {ok:false,reason:"EMPTY PLATE",detail:"No cars left on the plate.",moves:0};
+  const [sr,sc]=car;
+  if(P.charge && soc[sr][sc]<P.socMin)
+    return {ok:false,car,reason:"FLAT",moves:0,at:car,
+      detail:"This car is at "+Math.round(soc[sr][sc])+"% charge, below the "+P.socMin+"% dispatch floor. It is stored, but it cannot be sent out."};
+  const path=routeToExit(sr,sc);
+  if(!path) return {ok:false,car,reason:"ENCLOSED",moves:0,at:car,
+    detail:"Columns cut this bay off from the exit. No sequence of moves can reach it."};
+
+  let cur=[sr,sc], moves=0, prevDir=null, needSwing=P.swing && P.W<SWING_THRESHOLD;
+  g[sr][sc]=EMPTY;                                   // the car is held as `cur`; its cell reads empty while shuffling
+  snap(cur);
+  for(const [nr,nc] of path){
+    const dr=nr-cur[0], dc=nc-cur[1];
+    if(needSwing && prevDir && (dr!==prevDir[0]||dc!==prevDir[1])){
+      if(!freeSwing(cur[0],cur[1],dr,dc)){
+        g[cur[0]][cur[1]]=CAR;
+        return {ok:false,car,reason:"NO SWING",moves,at:cur.slice(),
+          detail:"At "+ft(P.W)+" the car cannot change direction without a free cell beside it. Widen the stall, or add an empty."};
+      }
+      moves+=TURN_COST;
+    }
+    if(g[nr][nc]===CAR){
+      const d=escortTo(nr,nc,cur[0],cur[1],true);
+      if(d===Infinity){
+        g[cur[0]][cur[1]]=CAR;
+        return {ok:false,car,reason:"LOCKED",moves,at:[nr,nc],
+          detail:"No empty cell can reach the bay ahead. With "+P.empties+" empties the plate has no slack left to shuffle."};
+      }
+      moves+=d;
+    }
+    cur=[nr,nc]; moves+=1; prevDir=[dr,dc]; snap(cur);
+    if(moves>P.budget){
+      g[cur[0]][cur[1]]=CAR;
+      return {ok:false,car,reason:"OVER BUDGET",moves,at:cur.slice(),
+        detail:moves+" moves exceeds the "+P.budget+"-move budget. The car is reachable, but nobody waits that long."};
+    }
+  }
+  refill();                                          // car leaves; another arrives
+  return {ok:true,car,moves,at:[exitCell.r,exitCell.c]};
+}
+
+/* ---------- draw ---------- */
+function geom(){
+  const pad=10, aw=cv.width-pad*2, ah=cv.height-pad*2;
+  const w=aw/P.cols, h=ah/P.rows;
+  return {pad,w,h,ox:pad+(aw-w*P.cols)/2,oy:pad+(ah-h*P.rows)/2};
+}
+function css(v){return getComputedStyle(document.documentElement).getPropertyValue(v).trim();}
+function draw(G,carPos){
+  G=G||g;
+  const {w,h,ox,oy}=geom();
+  ctx.clearRect(0,0,cv.width,cv.height);
+  ctx.fillStyle=css("--void"); ctx.fillRect(0,0,cv.width,cv.height);
+  const narrow=P.W<SWING_THRESHOLD;
+  for(let r=0;r<P.rows;r++)for(let c=0;c<P.cols;c++){
+    const x=ox+c*w, y=oy+r*h, v=G[r][c];
+    if(v===COL){                                    // structural column — hatched, so it never reads as slack
+      ctx.fillStyle=css("--column"); ctx.fillRect(x+1,y+1,w-2,h-2);
+      ctx.strokeStyle=css("--concrete"); ctx.lineWidth=1.2; ctx.globalAlpha=.85;
+      ctx.beginPath();
+      ctx.moveTo(x+3,y+3); ctx.lineTo(x+w-3,y+h-3);
+      ctx.moveTo(x+w-3,y+3); ctx.lineTo(x+3,y+h-3);
+      ctx.stroke(); ctx.globalAlpha=1; continue;
+    }
+    ctx.fillStyle=css(v===EMPTY?"--void":"--concrete");
+    ctx.fillRect(x+1,y+1,w-2,h-2);
+    if(v===CAR){
+      const inset=Math.max(1.5,w*(narrow?0.06:0.12));
+      ctx.fillStyle=css("--car");
+      ctx.fillRect(x+inset,y+h*0.16,w-inset*2,h*0.68);
+      ctx.fillStyle=css("--car-line");
+      ctx.fillRect(x+w/2-Math.max(1,w*.05),y+h*0.30,Math.max(2,w*.1),Math.max(2,h*.1));
+      if(P.charge && g[r][c]===CAR && soc[r][c]<P.socMin){                 // stored, but cannot be sent
+        ctx.fillStyle=css("--refuse"); ctx.globalAlpha=.42;
+        ctx.fillRect(x+inset,y+h*0.16,w-inset*2,h*0.68); ctx.globalAlpha=1;
+      }
+    }
+    if(chg[r] && chg[r][c]){                        // charge point
+      ctx.fillStyle=css(chg[r][c]===2?"--target":"--stripe-old");
+      const t=Math.max(2.5,w*.13);
+      ctx.fillRect(x+2,y+2,t,t);
+    }
+    if(v===EMPTY){                                  // the slack — ghost of the stall that used to be here
+      ctx.strokeStyle=css("--stripe-old"); ctx.lineWidth=1.4; ctx.globalAlpha=.8;
+      ctx.setLineDash([3,3]); ctx.strokeRect(x+3,y+3,w-6,h-6);
+      ctx.setLineDash([]); ctx.globalAlpha=1;
+    }
+  }
+  // exit — a notch, not a label
+  const ex=ox+exitCell.c*w, ey=oy+exitCell.r*h;
+  ctx.strokeStyle=css("--ink"); ctx.lineWidth=2.5; ctx.strokeRect(ex+1.5,ey+1.5,w-3,h-3);
+  ctx.fillStyle=css("--ink");
+  ctx.beginPath();
+  ctx.moveTo(ex-2,ey+h*0.5); ctx.lineTo(ex+7,ey+h*0.5-6); ctx.lineTo(ex+7,ey+h*0.5+6);
+  ctx.closePath(); ctx.fill();
+  if(carPos){                                       // the requested car, mid-shuffle
+    const x=ox+carPos[1]*w, y=oy+carPos[0]*h;
+    const inset=Math.max(1.5,w*0.10);
+    ctx.fillStyle=css("--target");
+    ctx.fillRect(x+inset,y+h*0.16,w-inset*2,h*0.68);
+    ctx.strokeStyle=css("--target"); ctx.lineWidth=2.5;
+    ctx.strokeRect(x+1.5,y+1.5,w-3,h-3);
+  }
+  if(hi){
+    const {r,c,kind}=hi, x=ox+c*w, y=oy+r*h;
+    ctx.strokeStyle=css(kind==="bad"?"--refuse":"--target"); ctx.lineWidth=3;
+    ctx.strokeRect(x+1.5,y+1.5,w-3,h-3);
+    if(kind==="bad"){ ctx.fillStyle=css("--refuse"); ctx.globalAlpha=.3; ctx.fillRect(x+1,y+1,w-2,h-2); ctx.globalAlpha=1; }
+  }
+}
+
+/* ---------- score ---------- */
+const ft=v=>{const f=Math.floor(v),i=Math.round((v-f)*12);return f+"′"+(i?i+"″":"0″");};
+function density(){
+  let cars=0,cells=0;
+  for(let r=0;r<P.rows;r++)for(let c=0;c<P.cols;c++){ if(g[r][c]===COL)continue; cells++; if(g[r][c]===CAR)cars++; }
+  return cells?Math.round(cars/cells*100):0;
+}
+function score(){
+  $("runs").textContent=stats.n+" retrieval"+(stats.n===1?"":"s");
+  const done=stats.n-stats.ref;
+  $("sMoves").textContent = done? Math.round(stats.moves/done) : "—";
+  $("sThru").textContent  = done? Math.round(3600/((stats.moves/done)*P.sec)) : "—";
+  $("sRef").textContent   = stats.ref;
+  $("sRefPct").textContent= stats.n? "("+Math.round(stats.ref/stats.n*100)+"%)" : "";
+  $("scRef").classList.toggle("bad",stats.ref>0);
+  $("sDens").textContent  = density();
+}
+function verdict(res){
+  const v=$("verdict");
+  v.classList.toggle("refused",!res.ok);
+  $("vmark").textContent = res.ok?"CLEARED":"REFUSED · "+res.reason;
+  $("vtitle").textContent = res.ok
+    ? "Car retrieved in "+res.moves+" moves · "+Math.round(res.moves*P.sec)+"s"
+    : "Refused after "+res.moves+" move"+(res.moves===1?"":"s");
+  $("vtext").textContent = res.ok
+    ? "An empty cell was walked round to each bay ahead of it, "+res.moves+" times."
+    : res.detail;
+  hi = res.at ? {r:res.at[0],c:res.at[1],kind:res.ok?"ok":"bad"} : null;
+}
+function record(res,src){
+  stats.n++; if(!res.ok) stats.ref++; else stats.moves+=res.moves;
+  const d = res.car? dist(res.car) : "";
+  log.unshift({i:++seq,src:src||"sim",moves:res.moves,v:res.ok?"cleared":res.reason,
+               r:res.car?res.car[0]:"",c:res.car?res.car[1]:"",d:d});
+  if(log.length>200) log.pop();
+}
+function renderLog(){
+  $("logb").innerHTML = log.map(e=>
+    "<tr><td>"+e.i+"</td><td>"+e.src+"</td><td>"+e.d+"</td><td>"+e.moves+"</td><td"+(e.v==="cleared"?"":' class="r"')+">"+e.v+"</td></tr>"
+  ).join("");
+}
+
+/* ---------- controls ---------- */
+const BTNS=["bStep","bRun","bReset","bSweep","pHeur","pAI","bPlace","bApply"];
+function lock(v){ BTNS.forEach(id=>{ const e=$(id); if(e) e.disabled=v; }); }
+function play(frames,done){
+  if(!frames||!frames.length||!P.anim){ done(); return; }
+  playing=true; lock(true);
+  let i=0;
+  const tick=()=>{
+    if(i>=frames.length){ playing=false; lock(false); done(); return; }
+    const f=frames[i++]; draw(f.G,f.car);
+    setTimeout(()=>requestAnimationFrame(tick), Math.max(8,P.ms));
+  };
+  requestAnimationFrame(tick);
+}
+function step(src){
+  if(playing) return;
+  film = P.anim ? [] : null;
+  const res=retrieve();
+  const frames=film; film=null;
+  advanceCharge(Math.max(res.moves,1)*P.sec);
+  record(res,src);
+  const finish=()=>{ verdict(res); renderLog(); draw(); score(); chargeUI(); };
+  if(P.anim && frames && frames.length) play(frames,finish); else finish();
+  return res;
+}
+$("bStep").onclick=()=>step("you");
+$("bRun").onclick=()=>{
+  if(playing) return;
+  const keep=P.anim; P.anim=false;
+  let ref=0;
+  for(let i=0;i<40;i++){ const r=step("batch"); if(!r.ok) ref++; }
+  const v=$("verdict");
+  v.classList.toggle("refused",ref>0);
+  $("vmark").textContent = ref? "REFUSED · "+ref+"/40" : "CLEARED · 40/40";
+  $("vtitle").textContent = "40 retrievals run";
+  $("vtext").textContent = ref
+    ? ref+" of 40 were refused at "+ft(P.W)+" with "+P.empties+" empty cells."
+    : "Every car cleared. Try removing empty cells until one cannot.";
+  P.anim=keep;
+};
+$("bReset").onclick=()=>build();
+$("bSweep").onclick=()=>{
+  const keepAn=P.anim; P.anim=false;
+  const keepW=P.W, out=[];
+  for(let w=5.5; w<=9.01; w+=0.25){
+    P.W=w; build();
+    let ref=0,mv=0,done=0;
+    for(let i=0;i<50;i++){ const r=retrieve(); if(r.ok){done++;mv+=r.moves;} else ref++; }
+    out.push({w, pct:Math.round(ref/50*100), mean:done?Math.round(mv/done):null});
+  }
+  P.W=keepW; $("cW").value=keepW; build();
+  $("sweepWrap").hidden=false;
+  $("sweepb").innerHTML = out.map(o=>
+    "<tr><td>"+ft(o.w)+"</td><td"+(o.pct?' class="r"':'')+">"+o.pct+"%</td><td>"+(o.mean===null?"\u2014":o.mean)+"</td></tr>").join("");
+  const cliff = out.find(o=>o.pct>0);
+  const v=$("verdict"); v.classList.toggle("refused",!!cliff);
+  $("vmark").textContent = cliff? "CLIFF FOUND" : "NO CLIFF";
+  $("vtitle").textContent = cliff
+    ? "Refusals begin at "+ft(cliff.w)+" \u2014 50 retrievals per width, "+P.empties+" empties"
+    : "No width in 5\u203206\u2033\u20139\u20320\u2033 refused at "+P.empties+" empties";
+  $("vtext").textContent = cliff
+    ? "Above that width the plate clears every car. Below it, turning clearance starts to bind."
+    : "Lower the empty-cell count and sweep again \u2014 slack is covering for the turning rule.";
+  P.anim=keepAn;
+};
+$("bTheme").onclick=()=>{
+  const cur=document.documentElement.getAttribute("data-theme");
+  const dark=cur? cur==="dark" : matchMedia("(prefers-color-scheme: dark)").matches;
+  document.documentElement.setAttribute("data-theme",dark?"light":"dark");
+  draw();
+};
+
+function bindRange(id,key,fmt,rebuild){
+  const el=$(id), out=$("v"+id.slice(1));
+  const sync=()=>{ P[key]=parseFloat(el.value); out.textContent=fmt(P[key]); };
+  sync();
+  el.addEventListener("input",()=>{ sync(); if(rebuild) build(); else { draw(); score(); } });
+}
+bindRange("cW","W",v=>ft(v)+"  ·  "+(v<SWING_THRESHOLD?"no free turn":"turns freely"),false);
+bindRange("cE","empties",v=>v+" of "+(P.cols*P.rows)+" cells",true);
+bindRange("cCols","cols",v=>v+" bays wide",true);
+bindRange("cRows","rows",v=>v+" bays deep",true);
+bindRange("cBay","bay",v=>"column every "+v,true);
+bindRange("cBudget","budget",v=>v+" moves",false);
+bindRange("cSec","sec",v=>v+" s",false);
+$("cSwing").addEventListener("change",e=>{P.swing=e.target.checked;});
+$("cDisp").addEventListener("change",e=>{P.dispatch=e.target.value;});
+$("cPark").addEventListener("change",e=>{P.park=e.target.value;});
+$("cWall").addEventListener("change",e=>{P.wall=e.target.value; build();});
+
+function chargeUI(){
+  const {l2,dc,n}=chargerCounts();
+  const cap=capacityKW(), worst=worstCaseKW(), now=currentKW();
+  const over=worst>cap;
+  $("mBar").classList.toggle("over",over);
+  $("mFill").style.width=Math.min(100,cap?worst/cap*100:0).toFixed(1)+"%";
+  $("mDraw").textContent=Math.round(worst);
+  $("mCap").textContent=Math.round(cap);
+  $("mState").textContent = !n ? "no points" : over ? "OVER CAPACITY" : "within capacity \u00b7 now "+Math.round(now)+" kW";
+  let cars=0,tot=0;
+  for(let r=0;r<P.rows;r++)for(let c=0;c<P.cols;c++) if(g[r][c]===CAR){cars++;tot+=soc[r][c];}
+  $("sPts").textContent = n+(dc?" ("+dc+" DC)":"");
+  $("sRatio").textContent = n? (cars/n).toFixed(1)+":1" : "\u2014";
+  $("sFlat").textContent = P.charge? flatCars() : "\u2014";
+  $("sSoc").textContent = cars? Math.round(tot/cars) : "\u2014";
+  const A={aKva:P.kva,aPf:P.pf,aCap:Math.round(cap),aL2:P.l2kw,aE1:P.effL2,aDc:P.dckw,aE2:P.effDC,
+           aTap:P.taper,aTapF:P.taperF,aBatt:P.batt,aSp:P.space};
+  for(const k in A){ const el=$(k); if(el) el.textContent=A[k]; }
+}
+$("cAnim").addEventListener("change",e=>{P.anim=e.target.checked;});
+$("cMs").addEventListener("input",e=>{P.ms=170-parseFloat(e.target.value);});
+$("cChg").addEventListener("change",e=>{P.charge=e.target.checked; chargeUI(); draw();});
+$("bPlace").onclick=()=>{
+  const n=placeChargers(); chargeUI(); draw();
+  const cap=capacityKW(), worst=worstCaseKW(), over=worst>cap;
+  const v=$("verdict"); v.classList.toggle("refused",over);
+  $("vmark").textContent = over? "REFUSED \u00b7 OVER CAPACITY" : "STANDS \u00b7 "+n+" POINTS";
+  $("vtitle").textContent = over
+    ? n+" points draw "+Math.round(worst)+" kW against a "+Math.round(cap)+" kW service"
+    : n+" charge points placed within the service";
+  $("vtext").textContent = over
+    ? "The layout is legal on the floor and illegal on the panel. Cut points, cut the DC share, or buy more service."
+    : (n<P.pts ? "Only "+n+" of "+P.pts+" would fit \u2014 fire separation, not power, is the binding constraint here."
+               : "Headroom "+Math.round(cap-worst)+" kW. Raise the DC share until the panel refuses.");
+};
+["cKva:kva","cPts:pts","cSpace:space","cDcShare:dcShare","cSocMin:socMin"].forEach(pair=>{
+  const [id,key]=pair.split(":"); const el=$(id), out=$("v"+id.slice(1));
+  const fmt={kva:v=>v+" kVA",pts:v=>v+" wanted",space:v=>v?v+" cell"+(v>1?"s":"")+" clear":"touching allowed",
+             dcShare:v=>v+"% DC fast",socMin:v=>v+"% charge"};
+  const sync=()=>{ P[key]=parseFloat(el.value); out.textContent=fmt[key](P[key]); };
+  sync(); el.addEventListener("input",()=>{ sync(); if(key==="pts"||key==="space"||key==="dcShare") placeChargers(); chargeUI(); draw(); });
+});
+$("bClear").onclick=()=>{ stats={n:0,ref:0,moves:0}; log=[]; seq=0; renderLog(); score(); };
+$("bCopyLog").onclick=async()=>{
+  const rows=["n,source,start_row,start_col,dist_to_exit,moves,verdict,stall_ft,empties,cols,rows,bay,dispatch,charge_layer,kva,points,dc_share"].concat(
+    log.slice().reverse().map(e=>[e.i,e.src,e.r,e.c,e.d,e.moves,e.v,P.W.toFixed(2),P.empties,P.cols,P.rows,P.bay,P.dispatch,P.charge?1:0,P.kva,chargerCounts().n,P.dcShare].join(",")));
+  try{ await navigator.clipboard.writeText(rows.join("\n")); $("bCopyLog").textContent="Copied"; setTimeout(()=>$("bCopyLog").textContent="Copy",1200);}catch(e){}
+};
+
+/* ---------- propose ---------- */
+const STRATEGIES=[
+  {n:"scatter",  f:()=>place(cells=>cells.sort(()=>Math.random()-.5))},
+  {n:"aisle",    f:()=>place(cells=>cells.sort((a,b)=>Math.abs(a[0]-exitCell.r)-Math.abs(b[0]-exitCell.r)||a[1]-b[1]))},
+  {n:"perimeter",f:()=>place(cells=>cells.sort((a,b)=>edge(a)-edge(b)))},
+  {n:"diagonal", f:()=>place(cells=>cells.sort((a,b)=>Math.abs(a[0]-a[1]*P.rows/P.cols)-Math.abs(b[0]-b[1]*P.rows/P.cols)))},
+  {n:"near-exit",f:()=>place(cells=>cells.sort((a,b)=>dist(a)-dist(b)))}
+];
+const edge=a=>Math.min(a[0],P.rows-1-a[0],a[1],P.cols-1-a[1]);
+const dist=a=>Math.abs(a[0]-exitCell.r)+Math.abs(a[1]-exitCell.c);
+function place(order){
+  const cells=[];
+  for(let r=0;r<P.rows;r++)for(let c=0;c<P.cols;c++) if(g[r][c]!==COL) cells.push([r,c]);
+  const sorted=order(cells.slice());
+  for(const [r,c] of cells) g[r][c]=CAR;
+  for(let i=0;i<Math.min(P.empties,sorted.length);i++) g[sorted[i][0]][sorted[i][1]]=EMPTY;
+  g[exitCell.r][exitCell.c]=EMPTY;
+}
+let si=0;
+function applyProposal(name,fn,src){
+  const keepA=P.anim; P.anim=false;
+  fn(); draw();
+  let ref=0,mv=0,done=0;
+  for(let i=0;i<20;i++){ const r=retrieve(); advanceCharge(Math.max(r.moves,1)*P.sec); record(r,src); if(r.ok){done++;mv+=r.moves;} else ref++; }
+  renderLog(); draw(); score(); chargeUI();
+  const v=$("verdict"); v.classList.toggle("refused",ref>0);
+  $("vmark").textContent = ref? "REFUSED · "+ref+"/20" : "STANDS · 20/20";
+  $("vtitle").textContent = "Proposal “"+name+"” — "+(ref?ref+" of 20 refused":"all 20 cleared");
+  $("vtext").textContent = done
+    ? "Mean "+Math.round(mv/done)+" moves per retrieval at "+ft(P.W)+", "+P.empties+" empties."
+    : "Every retrieval was refused. This layout cannot serve the plate.";
+  P.anim=keepA;
+}
+$("pHeur").onclick=()=>{ const s=STRATEGIES[si++%STRATEGIES.length]; applyProposal(s.n,s.f,"heur"); };
+
+function boardText(){
+  let s="";
+  for(let r=0;r<P.rows;r++){ let line="";
+    for(let c=0;c<P.cols;c++) line += g[r][c]===COL?"#":(g[r][c]===EMPTY?".":"o");
+    s+=line+"\n"; }
+  return s;
+}
+function promptText(){
+  return [
+"You are proposing a layout for a parking plate with no drive aisles.",
+"Cars ('o') are retrieved by walking an empty cell ('.') to the bay ahead of them and swapping, repeatedly, until the car reaches the EXIT. '#' is a structural column.",
+"",
+"Plate "+P.cols+" wide x "+P.rows+" deep. EXIT at row "+exitCell.r+", col "+exitCell.c+" (0-indexed).",
+"Stall width "+ft(P.W)+(P.W<SWING_THRESHOLD?" - cars CANNOT turn without a free cell beside them.":" - cars turn freely."),
+"You may place exactly "+P.empties+" empty cells.",
+"",
+boardText(),
+"Current score: "+(stats.n?Math.round(stats.ref/stats.n*100)+"% refused, mean "+(stats.n>stats.ref?Math.round(stats.moves/(stats.n-stats.ref)):"-")+" moves":"not yet run"),
+"",
+'Reply with ONLY JSON: {"empties":[[row,col],...],"rationale":"one sentence"}'
+  ].join("\n");
+}
+$("bCopy").onclick=async()=>{
+  try{ await navigator.clipboard.writeText(promptText()); $("bCopy").textContent="Copied — paste into Claude"; setTimeout(()=>$("bCopy").textContent="Copy board state & prompt",1800);}catch(e){}
+};
+function applyEmpties(list,label,src){
+  if(!Array.isArray(list)||!list.length) throw new Error("no empties in proposal");
+  for(let r=0;r<P.rows;r++)for(let c=0;c<P.cols;c++) if(g[r][c]!==COL) g[r][c]=CAR;
+  let ok=0;
+  for(const p of list){ const r=p[0],c=p[1];
+    if(inB(r,c)&&g[r][c]!==COL){ g[r][c]=EMPTY; ok++; } }
+  g[exitCell.r][exitCell.c]=EMPTY;
+  if(!ok) throw new Error("every proposed cell was a column or off-plate");
+  applyProposal(label,()=>{},src);
+}
+$("bApply").onclick=()=>{
+  const t=$("paste").value.trim(); if(!t) return;
+  try{
+    const m=t.match(/\{[\s\S]*\}/); const j=JSON.parse(m?m[0]:t);
+    applyEmpties(j.empties,(j.rationale||"pasted proposal").slice(0,60),"paste");
+  }catch(e){
+    const v=$("verdict"); v.classList.add("refused");
+    $("vmark").textContent="REFUSED · MALFORMED";
+    $("vtitle").textContent="The proposal could not be read";
+    $("vtext").textContent=e.message+". Expected {\"empties\":[[row,col],...]}";
+  }
+};
+
+/* Claude, if the page can reach it */
+(async function(){
+  const btn=$("pAI"); btn.disabled=true;
+  let sample=null;
+  try{ sample = window.claude && window.claude.use ? await window.claude.use("sample") : null; }catch(e){ sample=null; }
+  if(!sample){ btn.hidden=true; $("aiHint").textContent="Claude is not reachable from this view — use the built-in proposer, or the copy-paste ritual below."; return; }
+  btn.disabled=false;
+  btn.onclick=async()=>{
+    btn.disabled=true; const old=btn.textContent; btn.textContent="Thinking…";
+    try{
+      const out=await sample.json(promptText(),{modelTier:"default"});
+      applyEmpties(out.empties,(out.rationale||"Claude").slice(0,60),"claude");
+    }catch(e){
+      const v=$("verdict"); v.classList.add("refused");
+      $("vmark").textContent="REFUSED · "+(e.code||"ERROR").toUpperCase();
+      $("vtitle").textContent="Claude's proposal did not land";
+      $("vtext").textContent=(e.message||String(e))+" — the built-in proposer and the paste ritual still work.";
+    }
+    btn.disabled=false; btn.textContent=old;
+  };
+})();
+
+/* ---------- boot ---------- */
+function fit(){
+  const w=cv.parentElement.clientWidth-24;
+  cv.width=Math.max(320,Math.min(1000,w))*2;
+  cv.height=Math.round(cv.width*(P.rows/P.cols)*0.62);
+  cv.style.height="auto"; draw();
+}
+addEventListener("resize",fit);
+build(); fit(); chargeUI();
+})();
+</script>
+
+</body></html>

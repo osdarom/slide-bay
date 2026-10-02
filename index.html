@@ -1,0 +1,740 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#faf9f5;color:#141413}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>Slide Bay</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap">
+<style>
+:root{
+  --bg:#E4E1DB; --panel:#F6F4F0; --panel-2:#EDEAE4;
+  --ink:#1C1E21; --muted:#6C6962; --faint:#9A968E; --line:#D2CEC6;
+  --deck:#7E7B73; --deck-line:#8F8C84;
+  --car:#E9E7E2; --car-edge:#B4B0A8; --car-nose:#9C988F;
+  --pallet:#6B6862; --pallet-edge:#5A5752; --glass:rgba(24,28,32,.6); --tyre:#2B2C2E;
+  --target:#2E6E7E; --target-edge:#1F4D58; --target-car:#8ED3E1; --target-ink:#163E48;
+  --lamp:#FFD23F; --lamp-edge:#6E5200;
+  --turn:#B99A2E;
+  --refuse:#A8331F; --refuse-soft:#E8C9C2;
+  --focus:#2E6E7E;
+  --shadow:0 1px 2px rgba(28,30,33,.06),0 4px 14px rgba(28,30,33,.05);
+}
+@media (prefers-color-scheme: dark){ :root:not([data-theme="light"]){
+  --bg:#17191C; --panel:#1F2225; --panel-2:#24272B;
+  --ink:#EDEAE4; --muted:#9E9A93; --faint:#6E6A64; --line:#33373C;
+  --deck:#3A3D41; --deck-line:#464A4F;
+  --car:#D6D3CD; --car-edge:#8A867F; --car-nose:#6E6A64;
+  --pallet:#2A2D31; --pallet-edge:#4A4E54; --glass:rgba(12,14,16,.62); --tyre:#0D0E0F;
+  --target:#5FB6C9; --target-edge:#8FD4E4; --target-car:#E0F7FB; --target-ink:#1D5866;
+  --lamp:#FFE27A; --lamp-edge:#5C4500;
+  --turn:#C8A93A;
+  --refuse:#E0604A; --refuse-soft:#4A2620;
+  --focus:#5FB6C9;
+  --shadow:0 1px 2px rgba(0,0,0,.3),0 4px 14px rgba(0,0,0,.25);
+}}
+:root[data-theme="dark"]{
+  --bg:#17191C; --panel:#1F2225; --panel-2:#24272B;
+  --ink:#EDEAE4; --muted:#9E9A93; --faint:#6E6A64; --line:#33373C;
+  --deck:#3A3D41; --deck-line:#464A4F;
+  --car:#D6D3CD; --car-edge:#8A867F; --car-nose:#6E6A64;
+  --pallet:#2A2D31; --pallet-edge:#4A4E54; --glass:rgba(12,14,16,.62); --tyre:#0D0E0F;
+  --target:#5FB6C9; --target-edge:#8FD4E4; --target-car:#E0F7FB; --target-ink:#1D5866;
+  --lamp:#FFE27A; --lamp-edge:#5C4500;
+  --turn:#C8A93A;
+  --refuse:#E0604A; --refuse-soft:#4A2620;
+  --focus:#5FB6C9;
+  --shadow:0 1px 2px rgba(0,0,0,.3),0 4px 14px rgba(0,0,0,.25);
+}
+*{box-sizing:border-box}
+html,body{height:100%}
+body{margin:0;background:var(--bg);color:var(--ink);
+  font-family:"IBM Plex Sans",system-ui,-apple-system,sans-serif;font-size:14px;line-height:1.45}
+.wrap{min-height:100%;max-width:1180px;margin:0 auto;padding:0 16px;padding-block:14px 22px;
+  display:flex;flex-direction:column;gap:11px}
+header{display:flex;flex-wrap:wrap;align-items:baseline;gap:6px 14px}
+h1{font-size:19px;font-weight:600;letter-spacing:-.01em;margin:0}
+.sub{color:var(--muted);font-size:12.5px;margin:0;flex:1;min-width:240px}
+.eyebrow{font-family:"IBM Plex Mono",ui-monospace,monospace;font-size:10.5px;letter-spacing:.09em;
+  text-transform:uppercase;color:var(--faint)}
+
+canvas{width:100%;height:auto;display:block;background:var(--deck);border-radius:3px;
+  box-shadow:var(--shadow);touch-action:none;cursor:pointer}
+
+.verdict{min-height:56px;border-radius:3px;padding:9px 11px;background:var(--panel);
+  border:1px solid var(--line);display:flex;gap:11px;align-items:flex-start}
+.verdict.refused{background:var(--refuse-soft);border-color:var(--refuse)}
+.vmark{font-family:"IBM Plex Mono",monospace;font-size:11px;font-weight:600;letter-spacing:.07em;
+  padding:2px 7px;border-radius:2px;white-space:nowrap;background:var(--ink);color:var(--panel)}
+.verdict.refused .vmark{background:var(--refuse);color:#fff}
+.vtitle{font-weight:600;font-size:13.5px}
+.vtext{color:var(--muted);font-size:12.5px;margin-top:1px}
+.verdict.refused .vtext{color:var(--refuse)}
+
+.bar{display:flex;flex-wrap:wrap;gap:7px;align-items:center}
+button{font:inherit;font-size:12.5px;font-weight:500;color:var(--ink);background:var(--panel);
+  border:1px solid var(--line);border-radius:3px;padding:7px 12px;cursor:pointer}
+button:hover{background:var(--panel-2)}
+button:focus-visible{outline:2px solid var(--focus);outline-offset:1px}
+button:disabled{opacity:.45;cursor:not-allowed}
+button.primary{background:var(--ink);color:var(--panel);border-color:var(--ink)}
+button.primary:hover{opacity:.9;background:var(--ink)}
+
+.dials{display:grid;grid-template-columns:repeat(auto-fit,minmax(148px,1fr));gap:12px 16px;
+  background:var(--panel);border:1px solid var(--line);border-radius:3px;padding:11px 13px}
+.dial{font-size:12px}
+.dial .lab{display:flex;justify-content:space-between;align-items:baseline;gap:8px;margin-bottom:3px}
+.dial .val{font-family:"IBM Plex Mono",monospace;font-size:11.5px;color:var(--muted);font-variant-numeric:tabular-nums}
+.dial .hint{display:block;margin-top:4px;font-size:10.5px;line-height:1.35;color:var(--faint)}
+input[type=range]{width:100%;accent-color:var(--focus);margin:0}
+input[type=range]:focus-visible{outline:2px solid var(--focus);outline-offset:3px}
+
+.foot{display:flex;flex-wrap:wrap;gap:6px 20px;font-size:11.5px;color:var(--muted)}
+.foot b{font-family:"IBM Plex Mono",monospace;color:var(--ink);font-weight:600;font-variant-numeric:tabular-nums}
+.legend{display:flex;flex-wrap:wrap;gap:4px 14px;font-size:11.5px;color:var(--muted)}
+.legend span{display:flex;align-items:center;gap:5px}
+.sw{width:11px;height:11px;border-radius:2px;border:1px solid var(--car-edge);flex:none}
+.note{color:var(--faint);font-size:11px;line-height:1.5;margin:0}
+.prior{color:var(--muted);font-size:12px;line-height:1.5;margin:0}
+.prior a{color:var(--ink);font-weight:600;text-underline-offset:2px}
+.prior a:focus-visible{outline:2px solid var(--focus);outline-offset:2px}
+details summary{cursor:pointer;font-size:12px;color:var(--muted)}
+.sweep{background:var(--panel);border:1px solid var(--line);border-radius:3px;padding:11px 13px;
+  display:flex;flex-direction:column;gap:9px}
+.shead{display:flex;flex-wrap:wrap;align-items:baseline;gap:4px 10px;font-size:13px}
+.shead span{color:var(--muted);font-size:11.5px;font-family:"IBM Plex Mono",monospace}
+.strip{display:flex;align-items:flex-end;gap:2px;height:54px}
+.strip i{flex:1;min-width:2px;background:var(--target);border-radius:1px 1px 0 0;display:block}
+.strip i.over{background:var(--refuse)}
+.sgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(112px,1fr));gap:4px 14px;font-size:11.5px;color:var(--muted)}
+.sgrid b{font-family:"IBM Plex Mono",monospace;color:var(--ink);font-weight:600;font-variant-numeric:tabular-nums}
+.logwrap{max-height:132px;overflow:auto;border:1px solid var(--line);border-radius:3px;background:var(--panel)}
+table{width:100%;border-collapse:collapse;font-size:11.5px;font-family:"IBM Plex Mono",monospace;font-variant-numeric:tabular-nums}
+th{text-align:left;font-weight:500;color:var(--faint);font-size:9.5px;letter-spacing:.07em;
+  text-transform:uppercase;padding:6px 8px 4px;position:sticky;top:0;background:var(--panel)}
+td{padding:3px 8px;border-top:1px solid var(--line)}
+td.r{color:var(--refuse)}
+@media (prefers-reduced-motion:reduce){*{animation-duration:.01ms!important;transition-duration:.01ms!important}}
+</style>
+
+<div class="wrap">
+  <header>
+    <h1>Slide Bay</h1>
+    <p class="sub">The car is cargo. The building moves it &mdash; along its own axis only, unless it is standing on a cross-aisle.</p>
+    <span class="eyebrow">A2 &middot; flow &middot; the re-sorted garage</span>
+  </header>
+
+  <canvas id="cv" width="1200" height="800" aria-label="Slide bay puzzle"></canvas>
+
+  <div class="verdict" id="verdict">
+    <span class="vmark" id="vmark">READY</span>
+    <div>
+      <div class="vtitle" id="vtitle">Click a car, then use the arrow keys</div>
+      <div class="vtext" id="vtext">Get the teal car out of the west opening. It can only leave lying east&ndash;west, on the exit row.</div>
+    </div>
+  </div>
+
+  <div class="bar">
+    <button class="primary" id="bSolve">Solve it</button>
+    <button id="bClaude">Ask Claude</button>
+    <button id="bNew">New bay</button>
+    <button id="bUndo">Undo</button>
+    <button id="bSweep">Run 30 retrievals</button>
+    <button id="bTrace">Copy trace</button>
+    <button id="bClear">Clear</button>
+    <input type="range" id="cMs" min="20" max="420" step="20" value="230" style="width:92px" aria-label="Playback speed" title="Playback speed">
+    <span style="flex:1"></span>
+    <button id="bTheme">Theme</button>
+  </div>
+
+  <div class="dials">
+    <label class="dial" for="dW"><span class="lab"><span>Bay width</span><span class="val" id="vW"></span></span>
+      <input type="range" id="dW" min="8" max="16" step="1" value="12"></label>
+    <label class="dial" for="dCars"><span class="lab"><span>Cars stored</span><span class="val" id="vCars"></span></span>
+      <input type="range" id="dCars" min="6" max="32" step="1" value="16"></label>
+    <label class="dial" for="dTurn"><span class="lab"><span>Turn every</span><span class="val" id="vTurn"></span></span>
+      <input type="range" id="dTurn" min="1" max="9" step="1" value="3"></label>
+    <label class="dial" for="dStall"><span class="lab"><span>Stall width</span><span class="val" id="vStall"></span></span>
+      <input type="range" id="dStall" min="5.5" max="9" step="0.083" value="6.83">
+      <span class="hint">Sets the feet, not the puzzle &mdash; a pallet is always one cell wide and three long.</span></label>
+    <label class="dial" for="dBud"><span class="lab"><span>Controller budget</span><span class="val" id="vBud"></span></span>
+      <input type="range" id="dBud" min="1000" max="120000" step="1000" value="20000"></label>
+  </div>
+
+  <div class="foot">
+    <span>Bay <b id="fDim">&mdash;</b></span>
+    <span>Pallet <b id="fPal">&mdash;</b></span>
+    <span>Density <b id="fDens">&mdash;</b></span>
+    <span>Area per car <b id="fArea">&mdash;</b></span>
+    <span>Moves this retrieval <b id="fMoves">0</b></span>
+    <span>Turns <b id="fTurns">0</b></span>
+  </div>
+
+  <div class="legend">
+    <span><i class="sw" style="background:var(--pallet);border-color:var(--pallet-edge)"></i>pallet &mdash; what the building moves</span>
+    <span><i class="sw" style="background:var(--car)"></i>stored car</span>
+    <span><i class="sw" style="background:var(--target);border-color:var(--target)"></i>the one being retrieved</span>
+    <span><i class="sw" style="background:var(--turn);border-color:var(--turn)"></i>cross-aisle — the only rows a car can turn on</span>
+    <span><i class="sw" style="background:var(--refuse);border-color:var(--refuse)"></i>refused move</span>
+  </div>
+
+  <p class="prior">Earlier version, with a second behavior wired in: <a href="plate.html">Plate Throughput</a> &mdash; the same aisle-less garage, one car per cell. Tick <i>Wire in the charge layer</i> there and a 750 kVA charge budget refuses cars that are stored but not charged enough to send.</p>
+
+  <div class="sweep" id="sweepOut" hidden>
+    <div class="shead"><b id="swTitle">&mdash;</b><span id="swSub"></span></div>
+    <div class="strip" id="swStrip"></div>
+    <div class="sgrid" id="swGrid"></div>
+    <p class="note" id="swNote"></p>
+  </div>
+
+  <div class="logwrap">
+    <table><thead><tr><th>#</th><th>Source</th><th>Moves</th><th>Turns</th><th>States searched</th><th>Verdict</th></tr></thead>
+    <tbody id="logb"></tbody></table>
+  </div>
+
+  <details>
+    <summary>What this model assumes</summary>
+    <p class="note">A car is inert cargo on a pallet, three cells long and one wide. The car drawn on each pallet is a typical sedan, about 16&prime; &times; 6&prime;, at the scale of a 6&prime;10&Prime; stall; the puzzle only sees the pallet.The building slides it along its own axis into any free cell &mdash; that is a shuttle running under the pallet, and it costs one move. A car cannot move sideways at all &mdash; a vertical pallet never changes column until it is turned. To change axis its centre must stand on a <b>cross-aisle</b>, a row the building has equipped to rotate a pallet ninety degrees, with the swept footprint clear. The exit row is always a cross-aisle; every other one is a row of storage given up to machinery. The west opening accepts a car only when it lies east&ndash;west on the exit row. Nothing here models acceleration, pallet exchange time, queueing at the opening, or what happens when two retrievals are wanted at once.</p>
+    <p class="note" style="margin-top:7px">The controller is a best-first search with a fixed budget of bay states it is allowed to open. When it runs out, the bay says <b>OVER BUDGET</b>, not <i>impossible</i> &mdash; the way out may exist and simply not have been found. That distinction is the honest one: a real controller also has a deadline, and a retrieval it cannot plan in time is a retrieval that does not happen. The heuristic here is crude, so these budgets are the cost of <i>this</i> controller, not a lower bound on any controller. A3 would have to measure a real one.</p>
+  </details>
+</div>
+
+<script>
+(function(){
+"use strict";
+const $=id=>document.getElementById(id);
+const cv=$("cv"), ctx=cv.getContext("2d");
+const LEN=3, STALL_LEN=18;
+
+const P={cols:12,rows:9,ncars:16,gap:3,stall:6.83,ms:230,budget:20000};
+// drawing only — the puzzle sees just the 3-cell pallet. A typical sedan, about 16′ × 6′ (assumed),
+// drawn at the scale of the A1 6′10″ stall, so the picture never changes with the stall dial.
+const CAR={len:16,wid:6,ref:6.83};
+let cars=[], aisles=[], exitRow=4, target=0, sel=-1;
+let moves=0, turns=0, history=[], log=[], seq=0, playing=false;
+
+/* ---------------- model ---------------- */
+const cellsOf=c => { const out=[];
+  for(let i=0;i<LEN;i++) out.push(c.dir==="H" ? [c.r,c.c+i] : [c.r+i,c.c]);
+  return out; };
+let _o=null;
+function occGrid(fresh){
+  if(!_o || _o.length!==P.rows || _o[0].length!==P.cols)
+    _o=Array.from({length:P.rows},()=>new Int16Array(P.cols));
+  for(let r=0;r<P.rows;r++) _o[r].fill(-1);
+  for(let i=0;i<cars.length;i++){ const c=cars[i];
+    if(c.dir==="H"){ for(let k=0;k<LEN;k++){ const q=c.c+k; if(c.r>=0&&c.r<P.rows&&q>=0&&q<P.cols) _o[c.r][q]=i; } }
+    else { for(let k=0;k<LEN;k++){ const r=c.r+k; if(r>=0&&r<P.rows&&c.c>=0&&c.c<P.cols) _o[r][c.c]=i; } } }
+  return _o;
+}
+const inB=(r,c)=>r>=0&&r<P.rows&&c>=0&&c<P.cols;
+const centre=c => c.dir==="H" ? [c.r,c.c+1] : [c.r+1,c.c];
+const isAisle=r=> aisles.indexOf(r)>=0;
+
+function legalSlide(o,i,d){                       // d = -1 back, +1 forward along the car's axis
+  const c=cars[i];
+  const [hr,hc] = d>0 ? (c.dir==="H"?[c.r,c.c+LEN]:[c.r+LEN,c.c])
+                      : (c.dir==="H"?[c.r,c.c-1]:[c.r-1,c.c]);
+  if(!inB(hr,hc)) return false;
+  return o[hr][hc]===-1;
+}
+function legalRotate(o,i){
+  const c=cars[i], [cr,cc]=centre(c);
+  if(!isAisle(cr)) return false;                  // a car turns only on a cross-aisle
+  const nd = c.dir==="H" ? "V" : "H";
+  const nc = nd==="H" ? {r:cr,c:cc-1,dir:"H"} : {r:cr-1,c:cc,dir:"V"};
+  for(const [r,q] of cellsOf(nc)){
+    if(!inB(r,q)) return false;
+    if(o[r][q]!==-1 && o[r][q]!==i) return false;
+  }
+  return nc;
+}
+function legalMoves(o){
+  const out=[];
+  for(let i=0;i<cars.length;i++){
+    if(legalSlide(o,i,+1)) out.push({i,k:"s",d:+1});
+    if(legalSlide(o,i,-1)) out.push({i,k:"s",d:-1});
+    const rot=legalRotate(o,i); if(rot) out.push({i,k:"r",to:rot});
+  }
+  return out;
+}
+function applyMove(m){
+  const c=cars[m.i];
+  if(m.k==="s"){ if(c.dir==="H") c.c+=m.d; else c.r+=m.d; }
+  else { c.r=m.to.r; c.c=m.to.c; c.dir=m.to.dir; }
+}
+const atExit = () => { const t=cars[target]; return t.dir==="H" && t.r===exitRow && t.c<=0; };
+
+/* ---------------- build ---------------- */
+function build(){
+  P.rows = Math.max(7, Math.round(P.cols*0.75));
+  exitRow = Math.floor(P.rows/2);
+  cars=[]; moves=0; turns=0; history=[]; sel=-1;
+  layAisles();
+  const slots=[];
+  for(let r=0;r<P.rows;r++)for(let c=0;c<P.cols;c++){
+    if(c+LEN<=P.cols) slots.push({r,c,dir:"H"});
+    if(r+LEN<=P.rows) slots.push({r,c,dir:"V"});
+  }
+  for(let i=slots.length-1;i>0;i--){const j=(Math.random()*(i+1))|0;[slots[i],slots[j]]=[slots[j],slots[i]];}
+  // the retrieved car is stored in rank — across the exit axis, so it must be turned before it can leave.
+  // it is placed deep and at random, so it does not start life already standing on a cross-aisle.
+  const deep = Math.max(3, Math.floor(P.cols*0.4));
+  const tSlot = slots.find(s=>s.dir==="V" && s.c>=deep) || {r:0,c:deep,dir:"V"};
+  cars.push({r:tSlot.r,c:tSlot.c,dir:"V"});
+  let o=occGrid();
+  for(const s of slots){
+    if(cars.length>=P.ncars) break;
+    const cand={r:s.r,c:s.c,dir:s.dir};
+    let clash=false;
+    for(const [r,q] of cellsOf(cand)){ if(!inB(r,q)||o[r][q]!==-1){clash=true;break;} }
+    if(clash) continue;
+    if(cand.dir==="H" && cand.r===exitRow && cand.c<2) continue;   // keep the mouth clear
+    cars.push(cand); o=occGrid();
+  }
+  say("READY","Click a car, then use the arrow keys","Get the teal car out of the west opening. It can only leave lying east–west, on the exit row.",false);
+  stats(); draw();
+}
+// cross-aisles are evenly spaced and the exit row is always one of them,
+// so the control is a spacing — how often the building can turn a car — not a count
+function layAisles(){
+  aisles=[];
+  for(let r=exitRow%P.gap; r<P.rows; r+=P.gap) aisles.push(r);
+  if(aisles.indexOf(exitRow)<0) aisles.push(exitRow);
+  aisles.sort((a,b)=>a-b);
+}
+
+/* ---------------- solver ---------------- */
+function ser(){ const n=cars.length, a=new Int8Array(n*3);
+  for(let i=0;i<n;i++){ a[i*3]=cars[i].r; a[i*3+1]=cars[i].c; a[i*3+2]=cars[i].dir==="H"?0:1; }
+  return a; }
+function key(a){ return String.fromCharCode.apply(null,a); }
+function deser(a){ for(let i=0;i<cars.length;i++){
+  cars[i].r=a[i*3]; cars[i].c=a[i*3+1]; cars[i].dir=a[i*3+2]?"V":"H"; } }
+function heur(){
+  const t=cars[target];
+  if(t.dir==="H" && t.r===exitRow){
+    const o=occGrid(); let block=0;
+    for(let c=0;c<t.c;c++) if(o[exitRow][c]>=0 && o[exitRow][c]!==target) block++;
+    return t.c + block*3;
+  }
+  if(t.dir==="V"){                                 // must drop its centre onto a cross-aisle, then turn
+    let best=99;
+    for(const a of aisles) best=Math.min(best, Math.abs((t.r+1)-a) + (a===exitRow?0:6));
+    return 14 + best + Math.max(0,t.c);
+  }
+  return 20 + Math.abs(t.r-exitRow)*3 + Math.max(0,t.c);
+}
+function solve(cap){
+  const start=ser(), seen=new Set([key(start)]);
+  const heap=[{s:start,mv:null,par:null,g:0,f:heur()}];
+  const push=n=>{ let i=heap.push(n)-1; while(i>0){ const p=(i-1)>>1;
+    if(heap[p].f<=heap[i].f) break; [heap[p],heap[i]]=[heap[i],heap[p]]; i=p; } };
+  const pop=()=>{ const top=heap[0], last=heap.pop();
+    if(heap.length){ heap[0]=last; let i=0; for(;;){ const l=2*i+1,r=l+1; let m=i;
+      if(l<heap.length&&heap[l].f<heap[m].f)m=l; if(r<heap.length&&heap[r].f<heap[m].f)m=r;
+      if(m===i)break; [heap[m],heap[i]]=[heap[i],heap[m]]; i=m; } }
+    return top; };
+  let seen_n=0;
+  while(heap.length && seen_n<cap){
+    const node=pop(); seen_n++;
+    deser(node.s);
+    if(atExit()){ deser(start);
+      const out=[]; for(let n=node;n&&n.mv;n=n.par) out.push(n.mv);
+      out.reverse(); return {ok:true,moves:out,explored:seen_n}; }
+    const mvs=legalMoves(occGrid());
+    for(let j=0;j<mvs.length;j++){
+      deser(node.s); applyMove(mvs[j]);
+      const s2=ser(), k2=key(s2);
+      if(seen.has(k2)) continue;
+      seen.add(k2);
+      push({s:s2,mv:mvs[j],par:node,g:node.g+1,f:node.g+1+heur()});
+    }
+  }
+  deser(start);
+  return {ok:false,explored:seen_n,
+    reason: seen_n>=cap ? "OVER BUDGET" : "BLOCKED"};
+}
+
+/* ---------------- playback ---------------- */
+function lock(v){ ["bSolve","bClaude","bNew","bUndo","bSweep"].forEach(id=>$(id).disabled=v); }
+function playMoves(list,done){
+  playing=true; lock(true); let i=0;
+  const tick=()=>{
+    if(i>=list.length){ playing=false; lock(false); done&&done(); return; }
+    history.push(ser());
+    const mv=list[i++]; if(mv.k==="r") turns++;
+    applyMove(mv); moves++; stats(); draw();
+    setTimeout(tick, P.ms);
+  };
+  tick();
+}
+
+/* ---------------- draw ---------------- */
+function geom(){
+  const pad=14, s=Math.min((cv.width-pad*2)/P.cols,(cv.height-pad*2)/P.rows);
+  return {s, ox:(cv.width-s*P.cols)/2, oy:(cv.height-s*P.rows)/2};
+}
+const css=v=>getComputedStyle(document.documentElement).getPropertyValue(v).trim();
+function draw(bad){
+  const {s,ox,oy}=geom();
+  ctx.clearRect(0,0,cv.width,cv.height);
+  ctx.fillStyle=css("--deck"); ctx.fillRect(0,0,cv.width,cv.height);
+  // deck grid
+  ctx.strokeStyle=css("--deck-line"); ctx.lineWidth=1;
+  for(let r=0;r<=P.rows;r++){ ctx.beginPath(); ctx.moveTo(ox,oy+r*s); ctx.lineTo(ox+P.cols*s,oy+r*s); ctx.stroke(); }
+  for(let c=0;c<=P.cols;c++){ ctx.beginPath(); ctx.moveTo(ox+c*s,oy); ctx.lineTo(ox+c*s,oy+P.rows*s); ctx.stroke(); }
+  // cross-aisles: the only rows where a pallet can be turned
+  aisles.forEach(r=>{
+    const y=oy+r*s;
+    ctx.fillStyle=css("--turn"); ctx.globalAlpha=.16;
+    ctx.fillRect(ox,y,P.cols*s,s); ctx.globalAlpha=1;
+    ctx.strokeStyle=css("--turn"); ctx.lineWidth=1.5; ctx.setLineDash([6,5]);
+    ctx.beginPath(); ctx.moveTo(ox,y+2); ctx.lineTo(ox+P.cols*s,y+2);
+    ctx.moveTo(ox,y+s-2); ctx.lineTo(ox+P.cols*s,y+s-2); ctx.stroke(); ctx.setLineDash([]);
+  });
+  // exit mouth
+  const ey=oy+exitRow*s;
+  ctx.fillStyle=css("--ink");
+  ctx.beginPath(); ctx.moveTo(ox-4,ey+s/2); ctx.lineTo(ox-4+11,ey+s/2-8); ctx.lineTo(ox-4+11,ey+s/2+8);
+  ctx.closePath(); ctx.fill();
+  ctx.strokeStyle=css("--ink"); ctx.lineWidth=3;
+  ctx.beginPath(); ctx.moveTo(ox,ey+2); ctx.lineTo(ox,ey+s-2); ctx.stroke();
+  // cars: each one is a pallet — the 3-cell plate the building moves — carrying a sedan drawn to scale
+  const k=s/CAR.ref, pm=Math.max(1.5,s*0.035);
+  const col={pallet:css("--pallet"),palletEdge:css("--pallet-edge"),car:css("--car"),carEdge:css("--car-edge"),
+    target:css("--target"),targetCar:css("--target-car"),targetInk:css("--target-ink"),
+    refuse:css("--refuse"),refuseSoft:css("--refuse-soft"),glass:css("--glass"),tyre:css("--tyre"),
+    lamp:css("--lamp"),lampEdge:css("--lamp-edge")};
+  // the car being retrieved (and a refused one) is drawn last, so its glow is never covered by a neighbour
+  const order=cars.map((_,i)=>i).filter(i=>i!==target&&i!==bad);
+  if(bad>=0 && bad!==target) order.push(bad);
+  order.push(target);
+  order.forEach(i=>{
+    const c=cars[i];
+    const w = c.dir==="H" ? LEN*s : s, h = c.dir==="H" ? s : LEN*s;
+    const x = ox+c.c*s, y = oy+c.r*s, L = LEN*s;
+    const isT = i===target, isBad = bad===i, hot = isT||isBad;
+    ctx.save(); ctx.translate(x+w/2,y+h/2);
+    if(c.dir==="V") ctx.rotate(Math.PI/2);          // local frame: length along x, front toward -x (west, or north when V)
+    roundRect(-L/2+pm,-s/2+pm,L-pm*2,s-pm*2,Math.max(2,s*0.08));
+    if(hot){ ctx.shadowColor = isBad ? col.refuse : col.target; ctx.shadowBlur = s*0.45; }
+    ctx.fillStyle = isBad ? col.refuse : isT ? col.target : col.pallet; ctx.fill();
+    ctx.shadowBlur = 0;
+    ctx.strokeStyle = isBad ? col.refuse : isT ? col.targetInk : col.palletEdge;
+    ctx.lineWidth = hot ? Math.max(2,s*0.03) : 1; ctx.stroke();
+    drawCar(k, isBad ? col.refuseSoft : isT ? col.targetCar : col.car,
+               isBad ? col.refuse : isT ? col.targetInk : col.carEdge, col);
+    ctx.restore();
+    if(i===sel){ ctx.strokeStyle=css("--focus"); ctx.setLineDash([6,4]); ctx.lineWidth=Math.max(3,s*0.03);
+      roundRect(x+2,y+2,w-4,h-4,Math.max(2,s*0.12)); ctx.stroke(); ctx.setLineDash([]); }
+  });
+}
+// a sedan in plan, centred on the origin, front toward -x; k is pixels per foot
+function drawCar(k,body,edge,col){
+  const l=CAR.len*k, hw=CAR.wid*k/2, x0=-l/2, x1=x0+l;
+  ctx.fillStyle=col.tyre;                          // tyres, showing at the wheel arches
+  for(const ax of [x0+3.1*k, x1-3.5*k]){
+    roundRect(ax-1.05*k,-hw-0.12*k,2.1*k,0.67*k,0.2*k); ctx.fill();
+    roundRect(ax-1.05*k, hw-0.55*k,2.1*k,0.67*k,0.2*k); ctx.fill();
+  }
+  // body: a rounded nose and a squarer tail, so front and back read apart
+  const rf=Math.min(hw*0.75,2.2*k), rr=1.0*k;
+  ctx.beginPath();
+  ctx.moveTo(x0+rf,-hw); ctx.lineTo(x1-rr,-hw); ctx.arcTo(x1,-hw,x1,-hw+rr,rr); ctx.lineTo(x1,hw-rr);
+  ctx.arcTo(x1,hw,x1-rr,hw,rr); ctx.lineTo(x0+rf,hw); ctx.arcTo(x0,hw,x0,hw-rf,rf); ctx.lineTo(x0,-hw+rf);
+  ctx.arcTo(x0,-hw,x0+rf,-hw,rf); ctx.closePath();
+  ctx.fillStyle=body; ctx.fill();
+  ctx.strokeStyle=edge; ctx.lineWidth=Math.max(1,k*0.12); ctx.stroke();
+  const a=x0+4.2*k, b=a+2.2*k, d=b+4.4*k, e=d+1.8*k, g1=hw-0.45*k, g2=hw-0.85*k;
+  ctx.fillStyle=col.glass;
+  ctx.beginPath(); ctx.moveTo(a,-g1); ctx.lineTo(b,-g2); ctx.lineTo(b,g2); ctx.lineTo(a,g1); ctx.closePath(); ctx.fill();   // windscreen
+  ctx.beginPath(); ctx.moveTo(d,-g2); ctx.lineTo(e,-g1+0.15*k); ctx.lineTo(e,g1-0.15*k); ctx.lineTo(d,g2); ctx.closePath(); ctx.fill();   // rear window
+  ctx.globalAlpha=.7; ctx.fillRect(b,-g1,d-b,g1-g2); ctx.fillRect(b,g2,d-b,g1-g2); ctx.globalAlpha=1;   // side glass
+  ctx.fillRect(x1-0.45*k,-hw+0.6*k,0.3*k,1.0*k); ctx.fillRect(x1-0.45*k,hw-1.6*k,0.3*k,1.0*k);           // tail lamps, dark
+  ctx.fillStyle=col.lamp; ctx.strokeStyle=col.lampEdge; ctx.lineWidth=Math.max(1,k*0.08);               // headlamps, bright
+  for(const sy of [-1,1]){
+    roundRect(x0+0.55*k, sy<0 ? -hw+0.85*k : hw-2.15*k, 0.65*k, 1.3*k, 0.25*k); ctx.fill(); ctx.stroke();
+  }
+}
+function roundRect(x,y,w,h,r){ ctx.beginPath();
+  ctx.moveTo(x+r,y); ctx.arcTo(x+w,y,x+w,y+h,r); ctx.arcTo(x+w,y+h,x,y+h,r);
+  ctx.arcTo(x,y+h,x,y,r); ctx.arcTo(x,y,x+w,y,r); ctx.closePath(); }
+
+/* ---------------- ui ---------------- */
+function say(mark,title,text,bad){
+  $("verdict").classList.toggle("refused",!!bad);
+  $("vmark").textContent=mark; $("vtitle").textContent=title; $("vtext").textContent=text;
+}
+function stats(){
+  const ft=v=>{const n=Math.round(v*12);return Math.floor(n/12)+"′"+(n%12)+"″";};   // whole inches, so never 6′12″
+  const wFt=P.cols*P.stall, hFt=P.rows*P.stall;
+  $("fDim").textContent=Math.round(wFt)+"′ × "+Math.round(hFt)+"′";
+  $("fPal").textContent=ft(LEN*P.stall)+" × "+ft(P.stall);
+  $("fDens").textContent=Math.round(cars.length*LEN/(P.cols*P.rows)*100)+"%";
+  $("fArea").textContent=Math.round(wFt*hFt/Math.max(1,cars.length))+" sf";
+  $("fMoves").textContent=moves; $("fTurns").textContent=turns;
+  $("vW").textContent=P.cols+" × "+P.rows+" cells";
+  $("vCars").textContent=cars.length+" of "+P.ncars;
+  $("vTurn").textContent = aisles.length<=1 ? "exit row only"
+    : P.gap+" rows · "+Math.round(P.gap*P.stall)+"′ apart";
+  $("vStall").textContent=ft(P.stall);
+  $("vBud").textContent=P.budget.toLocaleString()+" states";
+}
+function record(src,verdict,states){
+  log.unshift({i:++seq,src,m:moves,t:turns,v:verdict,x:states==null?"\u2014":states.toLocaleString()});
+  if(log.length>80) log.pop();
+  $("logb").innerHTML=log.map(e=>"<tr><td>"+e.i+"</td><td>"+e.src+"</td><td>"+e.m+"</td><td>"+e.t+
+    "</td><td>"+e.x+"</td><td"+(e.v==="out"?"":' class="r"')+">"+e.v+"</td></tr>").join("");
+}
+
+cv.addEventListener("click",e=>{
+  if(playing) return;
+  const {s,ox,oy}=geom(), rect=cv.getBoundingClientRect();
+  const x=(e.clientX-rect.left)*(cv.width/rect.width), y=(e.clientY-rect.top)*(cv.height/rect.height);
+  const c=Math.floor((x-ox)/s), r=Math.floor((y-oy)/s);
+  const o=occGrid();
+  sel = inB(r,c) ? o[r][c] : -1;
+  draw();
+  if(sel>=0) say("SELECTED","Car "+sel+(sel===target?" — this is the one to get out":""),
+    "Arrow keys slide it along its axis. On a cross-aisle, press R to turn it.",false);
+});
+addEventListener("keydown",e=>{
+  if(playing||sel<0) return;
+  const c=cars[sel], o=occGrid();
+  let mv=null;
+  if(e.key==="r"||e.key==="R"){ const rot=legalRotate(o,sel); if(rot) mv={i:sel,k:"r",to:rot};
+    else return refuse(sel,"NOT ON A CROSS-AISLE","That car cannot turn here",
+      "A pallet turns only with its centre on a cross-aisle, and the swept footprint must be clear."); }
+  else {
+    const want = {ArrowLeft:["H",-1],ArrowRight:["H",+1],ArrowUp:["V",-1],ArrowDown:["V",+1]}[e.key];
+    if(!want) return;
+    e.preventDefault();
+    if(want[0]!==c.dir) return refuse(sel,"WRONG AXIS","This car cannot move that way",
+      "A pallet slides along its own length only. To change axis it must reach a cross-aisle and turn.");
+    if(!legalSlide(o,sel,want[1])) return refuse(sel,"BLOCKED","Something is in the way",
+      "The next cell is occupied, or the car is against the wall.");
+    mv={i:sel,k:"s",d:want[1]};
+  }
+  history.push(ser()); if(mv.k==="r") turns++; applyMove(mv); moves++; stats(); draw();
+  if(atExit()){ record("you","out");
+    say("OUT","Retrieved in "+moves+" moves, "+turns+" cross-aisle turn"+(turns===1?"":"s"),
+      "Press New bay to shuffle, or raise the density until it cannot be done.",false); }
+});
+function refuse(i,mark,title,text){
+  draw(i); say(mark,title,text,true);
+  setTimeout(()=>draw(),420);
+}
+$("bUndo").onclick=()=>{ if(playing||!history.length) return;
+  deser(history.pop()); moves=Math.max(0,moves-1); stats(); draw(); };
+$("bNew").onclick=()=>{ if(!playing) build(); };
+$("bTheme").onclick=()=>{ const cur=document.documentElement.getAttribute("data-theme");
+  const dark=cur?cur==="dark":matchMedia("(prefers-color-scheme: dark)").matches;
+  document.documentElement.setAttribute("data-theme",dark?"light":"dark"); draw(); };
+$("cMs").addEventListener("input",e=>{P.ms=parseFloat(e.target.value);});
+
+$("bSolve").onclick=()=>{
+  if(playing) return;
+  say("THINKING","Searching for a way out","Best-first over bay states. The controller may open "+P.budget.toLocaleString()+" of them.",false);
+  setTimeout(()=>{
+    const res=solve(P.budget);
+    if(!res.ok){
+      record("solver",res.reason==="BLOCKED"?"no way out":"over budget",res.explored);
+      say("REFUSED · "+res.reason,
+        res.reason==="BLOCKED" ? "There is no way out of this bay" : "Gave up after "+res.explored.toLocaleString()+" states",
+        res.reason==="BLOCKED" ? "Every legal sequence was tried and none frees the car. Fewer cars, or cross-aisles closer together."
+        : "The bay may be solvable, but not within the search budget. That is a real cost: a controller has the same problem.",
+        true);
+      draw(target); setTimeout(()=>draw(),700);
+      return;
+    }
+    playMoves(res.moves,()=>{
+      record("solver","out",res.explored);
+      say("OUT","Solved in "+res.moves.length+" moves, "+turns+" cross-aisle turn"+(turns===1?"":"s"),
+        "Explored "+res.explored.toLocaleString()+" bay states to find it.",false);
+    });
+  },30);
+};
+
+/* ---------------- sweep: the same bay, thirty times ---------------- */
+const pct=(a,p)=>{ const v=[...a].sort((x,y)=>x-y); return v[Math.min(v.length-1,Math.floor(p*v.length))]; };
+function sweep(n){
+  const btn=$("bSweep"); if(playing||btn.disabled) return;
+  btn.disabled=true; lock(true);
+  const ex=[], mv=[], okFlag=[]; let i=0;
+  const cars0=P.ncars, gap0=P.gap;
+  $("sweepOut").hidden=false;
+  const tick=()=>{
+    if(i>=n){
+      const ok=okFlag.filter(Boolean).length;
+      $("swTitle").textContent=ok+" of "+n+" retrieved within budget";
+      $("swSub").textContent=cars0+" cars · turn every "+gap0+" rows ("+aisles.length+
+        " cross-aisle"+(aisles.length===1?"":"s")+") · budget "+P.budget.toLocaleString()+" states";
+      const p10=pct(ex,.1), p50=pct(ex,.5), p90=pct(ex,.9);
+      $("swGrid").innerHTML=[
+        ["easiest tenth, states searched",p10.toLocaleString()],
+        ["median",p50.toLocaleString()],
+        ["hardest tenth",(p90>=P.budget?"\u2265 ":"")+p90.toLocaleString()],
+        ["spread, easiest tenth to hardest",(p90>=P.budget?"\u2265 ":"")+Math.round(p90/Math.max(1,p10)).toLocaleString()+"\u00d7"],
+        ["median moves, when solved",mv.length?pct(mv,.5):"\u2014"],
+        ["longest solution",mv.length?Math.max.apply(null,mv):"\u2014"]
+      ].map(r=>"<span>"+r[0]+" <b>"+r[1]+"</b></span>").join("");
+      $("swNote").textContent="Each bar is one retrieval in the order it ran; height is states searched, log scale. "+
+        "Red bars used the whole budget and were refused. Same bay, same rules, same density \u2014 only which car was asked for. "+
+        "The solutions stay about the same length however long the search takes: the cost is in finding the way out, not in walking it. "+
+        "Bars at the budget are censored, so the real spread is wider than the number above.";
+      btn.disabled=false; lock(false); build();
+      return;
+    }
+    build();
+    const r=solve(P.budget);
+    ex.push(Math.max(1,r.explored)); okFlag.push(r.ok); if(r.ok) mv.push(r.moves.length);
+    moves = r.ok ? r.moves.length : 0;
+    turns = r.ok ? r.moves.filter(m=>m.k==="r").length : 0;
+    record("sweep", r.ok?"out":(r.reason==="BLOCKED"?"no way out":"over budget"), r.explored);
+    i++;
+    const hi=Math.log10(Math.max(20,Math.max.apply(null,ex))), lo=Math.log10(Math.max(1,Math.min.apply(null,ex)));
+    const span=Math.max(0.35,hi-lo);
+    $("swTitle").textContent="Running \u2026 "+i+" of "+n;
+    $("swSub").textContent="";
+    $("swStrip").innerHTML=ex.map((v,k)=>'<i class="'+(okFlag[k]?"":"over")+
+      '" style="height:'+Math.max(3,Math.round((Math.log10(v)-lo)/span*50)+4)+'px" title="'+
+      v.toLocaleString()+' states"></i>').join("");
+    setTimeout(tick,0);
+  };
+  setTimeout(tick,0);
+}
+$("bSweep").onclick=()=>sweep(30);
+$("bClear").onclick=()=>{ if(playing) return; log=[]; seq=0; $("logb").innerHTML=""; $("sweepOut").hidden=true; };
+$("bTrace").onclick=async()=>{
+  const head="run,source,cars,cells,density_pct,gap_rows,cross_aisles,budget_states,stall_ft,moves,turns,states_searched,verdict";
+  const rows=[...log].reverse().map(e=>[e.i,e.src,P.ncars,P.cols*P.rows,
+    Math.round(cars.length*LEN/(P.cols*P.rows)*100),P.gap,aisles.length,P.budget,P.stall.toFixed(2),
+    e.m,e.t,String(e.x).replace(/,/g,""),'"'+e.v+'"'].join(","));
+  const csv=[head].concat(rows).join("\n");
+  if(!log.length){ say("NOTHING TO COPY","The trace is empty","Run some retrievals first.",true); return; }
+  try{ await navigator.clipboard.writeText(csv);
+    say("COPIED",log.length+" rows of trace are on your clipboard","Paste into a spreadsheet. One row per retrieval, with the settings it ran under.",false);
+    return;
+  }catch(e){}
+  try{
+    const dl = window.claude&&window.claude.use ? await window.claude.use("downloads") : null;
+    if(dl){ await dl.save({filename:"slidebay_trace.csv",data:csv});
+      say("SAVED","slidebay_trace.csv","One row per retrieval, with the settings it ran under.",false); return; }
+  }catch(e){ if(e&&e.code==="declined") return; }
+  const a=document.createElement("a");
+  a.href=URL.createObjectURL(new Blob([csv],{type:"text/csv"})); a.download="slidebay_trace.csv"; a.click();
+};
+
+/* ---------------- Claude proposes moves ---------------- */
+function boardText(){
+  const o=occGrid(); let s="";
+  for(let r=0;r<P.rows;r++){ let line="";
+    for(let c=0;c<P.cols;c++){
+      const i=o[r][c];
+      line += i<0 ? (isAisle(r)?"=":".") : (i===target?"T":String.fromCharCode(97+(i%26)));
+    }
+    s+=line+"\n"; }
+  return s;
+}
+function promptText(){
+  return [
+"A parking bay holds cars as 3-cell pallets. Each slides ONLY along its own length.",
+"'T' is the car to retrieve. Letters are other cars. '.' is free deck. Rows marked '=' are cross-aisles.",
+"A car changes axis only by rotating 90 degrees with its CENTRE cell on a cross-aisle row and the new footprint clear.",
+"",
+"Bay "+P.cols+" wide x "+P.rows+" deep. The exit is the west edge of row "+exitRow+" (0-indexed).",
+"'T' escapes when it lies east-west on row "+exitRow+" and reaches column 0.",
+"",
+boardText(),
+"Cars, in order: "+cars.map((c,i)=>(i===target?"T":String.fromCharCode(97+(i%26)))+"@"+c.r+","+c.c+c.dir).join(" "),
+"",
+'Reply with ONLY JSON: {"moves":[{"car":<index>,"op":"slide","d":-1|1} or {"car":<index>,"op":"rotate"}, ...],"rationale":"one sentence"}',
+"Car index is its position in the list above, starting at 0. 'T' is index "+target+".",
+"d=-1 moves west (H) or north (V); d=+1 moves east (H) or south (V)."
+  ].join("\n");
+}
+(async function(){
+  const btn=$("bClaude"); btn.disabled=true;
+  let sample=null;
+  try{ sample = window.claude&&window.claude.use ? await window.claude.use("sample") : null; }catch(e){}
+  if(!sample){ btn.textContent="Copy board for Claude";
+    btn.onclick=async()=>{ try{ await navigator.clipboard.writeText(promptText());
+      say("COPIED","Board and rules are on your clipboard","Paste into Claude, then paste the JSON back with the Paste button that appears.",false);
+      showPaste(); }catch(e){} };
+    btn.disabled=false; return; }
+  btn.disabled=false;
+  btn.onclick=async()=>{
+    if(playing) return;
+    btn.disabled=true; say("THINKING","Asking Claude for a move sequence","The bay will judge every move it proposes.",false);
+    try{
+      const out=await sample.json(promptText(),{modelTier:"complex"});
+      runProposal(out.moves,(out.rationale||"Claude").slice(0,70),"claude");
+    }catch(e){
+      say("REFUSED · "+(e.code||"ERROR").toUpperCase(),"Claude's answer did not arrive",
+        (e.message||String(e))+" — the solver still works.",true);
+    }
+    btn.disabled=false;
+  };
+})();
+function showPaste(){
+  if($("pasteBox")) return;
+  const d=document.createElement("div"); d.className="bar"; d.id="pasteBox"; d.style.marginTop="8px";
+  d.innerHTML='<textarea id="pasteIn" rows="2" style="flex:1;min-width:240px;font-family:monospace;font-size:11px;padding:6px;border:1px solid var(--line);border-radius:3px;background:var(--panel);color:var(--ink)" placeholder="Paste Claude&#39;s JSON here"></textarea><button id="pasteGo">Play it</button>';
+  $("bSolve").parentElement.after(d);
+  $("pasteGo").onclick=()=>{
+    try{ const t=$("pasteIn").value.trim(); const m=t.match(/\{[\s\S]*\}/);
+      const j=JSON.parse(m?m[0]:t);
+      runProposal(j.moves,(j.rationale||"pasted").slice(0,70),"paste");
+    }catch(e){ say("REFUSED · MALFORMED","That proposal could not be read",
+      e.message+'. Expected {"moves":[...]}',true); }
+  };
+}
+function runProposal(list,label,src){
+  if(!Array.isArray(list)||!list.length){
+    say("REFUSED · EMPTY","No moves were proposed","The bay cannot judge an empty proposal.",true); return; }
+  const queue=[]; let badAt=-1, badMove=null;
+  const snapshot=ser();
+  for(let k=0;k<list.length;k++){
+    const p=list[k], o=occGrid(), i=p.car;
+    if(!(i>=0&&i<cars.length)){ badAt=k; badMove=p; break; }
+    let mv=null;
+    if(p.op==="rotate"){ const rot=legalRotate(o,i); if(!rot){ badAt=k; badMove=p; break; } mv={i,k:"r",to:rot}; }
+    else { const d=p.d>0?1:-1; if(!legalSlide(o,i,d)){ badAt=k; badMove=p; break; } mv={i,k:"s",d}; }
+    applyMove(mv); queue.push(mv);
+  }
+  deser(snapshot);
+  if(!queue.length){
+    say("REFUSED · ILLEGAL","The first move proposed is not legal",
+      "Car "+(badMove&&badMove.car)+" cannot "+(badMove&&badMove.op||"move")+" from where it stands. Nothing was applied.",true);
+    record(src,"illegal"); draw(badMove&&badMove.car); setTimeout(()=>draw(),700); return;
+  }
+  playMoves(queue,()=>{
+    if(atExit()){ record(src,"out");
+      say("OUT · "+label,"Retrieved in "+moves+" moves","Proposal accepted in full.",false); }
+    else if(badAt>=0){ record(src,"illegal at "+badAt);
+      say("REFUSED · ILLEGAL AT MOVE "+(badAt+1),queue.length+" moves stood, then one did not",
+        "Car "+badMove.car+" could not "+(badMove.op||"move")+". The bay stopped there rather than pretend.",true);
+      draw(badMove.car); setTimeout(()=>draw(),700); }
+    else { record(src,"short");
+      say("REFUSED · SHORT","All "+queue.length+" moves were legal, but the car is still inside",
+        "A legal sequence is not the same as a solution.",true); }
+  });
+}
+
+/* ---------------- boot ---------------- */
+function bind(id,key,after){
+  const el=$(id);
+  el.addEventListener("input",()=>{ P[key]=parseFloat(el.value); if(after) after(); stats(); draw(); });
+}
+bind("dW","cols",build); bind("dCars","ncars",build); bind("dTurn","gap",build);
+bind("dStall","stall"); bind("dBud","budget");
+function fit(){
+  const w=cv.parentElement.clientWidth-32;
+  cv.width=Math.max(320,Math.min(1200,w))*2;
+  cv.height=Math.round(cv.width*(P.rows/P.cols));
+  draw();
+}
+addEventListener("resize",fit);
+build(); fit();
+})();
+</script>
+
+</body></html>
