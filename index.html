@@ -146,9 +146,9 @@ td.r{color:var(--refuse)}
 
   <div class="dials">
     <label class="dial" for="dW"><span class="lab"><span>Bay width</span><span class="val" id="vW"></span></span>
-      <input type="range" id="dW" min="8" max="16" step="1" value="12"></label>
+      <input type="range" id="dW" min="6" max="16" step="1" value="12"></label>
     <label class="dial" for="dCars"><span class="lab"><span>Cars stored</span><span class="val" id="vCars"></span></span>
-      <input type="range" id="dCars" min="6" max="32" step="1" value="16"></label>
+      <input type="range" id="dCars" min="3" max="32" step="1" value="16"></label>
     <label class="dial" for="dTurn"><span class="lab"><span>Turn every</span><span class="val" id="vTurn"></span></span>
       <input type="range" id="dTurn" min="1" max="9" step="1" value="3"></label>
     <label class="dial" for="dStall"><span class="lab"><span>Stall width</span><span class="val" id="vStall"></span></span>
@@ -176,6 +176,19 @@ td.r{color:var(--refuse)}
   </div>
 
   <p class="prior">Earlier version, with a second behavior wired in: <a href="plate.html">Plate Throughput</a> &mdash; the same aisle-less garage, one car per cell. Tick <i>Wire in the charge layer</i> there and a 750 kVA charge budget refuses cars that are stored but not charged enough to send.</p>
+
+  <div class="sweep" id="known">
+    <div class="shead"><b>Known result &middot; exhaustive search</b><span>separates the bay from the planner</span></div>
+    <p class="note" style="color:var(--muted)">On a small bay, a breadth-first search tries every arrangement in order of moves, so it finds the true shortest retrieval &mdash; or proves there is none. Where the planner agrees, the toy is measuring the bay; where it disagrees, it is measuring the planner.</p>
+    <div class="bar">
+      <button id="bSmall">Use a small bay (6 &times; 7)</button>
+      <button id="bCheck">Check this bay</button>
+      <button id="bCheck30">Check 30 bays</button>
+      <button id="bShortest" disabled>Play the shortest</button>
+    </div>
+    <div class="sgrid" id="kGrid"></div>
+    <p class="note" id="kNote"></p>
+  </div>
 
   <div class="sweep" id="sweepOut" hidden>
     <div class="shead"><b id="swTitle">&mdash;</b><span id="swSub"></span></div>
@@ -355,7 +368,8 @@ function solve(cap){
 }
 
 /* ---------------- playback ---------------- */
-function lock(v){ ["bSolve","bClaude","bNew","bUndo","bSweep"].forEach(id=>$(id).disabled=v); }
+function lock(v){ ["bSolve","bClaude","bNew","bUndo","bSweep","bSmall","bCheck","bCheck30"].forEach(id=>$(id).disabled=v);
+  if(v) $("bShortest").disabled=true; }
 function playMoves(list,done){
   playing=true; lock(true); let i=0;
   const tick=()=>{
@@ -486,7 +500,7 @@ function record(src,verdict,states){
   log.unshift({i:++seq,src,m:moves,t:turns,v:verdict,x:states==null?"\u2014":states.toLocaleString()});
   if(log.length>80) log.pop();
   $("logb").innerHTML=log.map(e=>"<tr><td>"+e.i+"</td><td>"+e.src+"</td><td>"+e.m+"</td><td>"+e.t+
-    "</td><td>"+e.x+"</td><td"+(e.v==="out"?"":' class="r"')+">"+e.v+"</td></tr>").join("");
+    "</td><td>"+e.x+"</td><td"+(e.v==="out"||e.v==="agrees"?"":' class="r"')+">"+e.v+"</td></tr>").join("");
 }
 
 cv.addEventListener("click",e=>{
@@ -655,6 +669,131 @@ $("bTrace").onclick=async()=>{
   }catch(e){ if(e&&e.code==="declined") return; }
   const a=document.createElement("a");
   a.href=URL.createObjectURL(new Blob([csv],{type:"text/csv"})); a.download="slidebay_trace.csv"; a.click();
+};
+
+/* ---------------- known result: exhaustive search on small bays ---------------- */
+// Breadth-first search opens bays in order of moves, so the first time the car is out is the
+// true minimum, and running out of bays proves there is no way out at all. It uses the same rules
+// (legalMoves) as everything else, so it checks the planner, not a second model of the bay.
+const EXH_CAP=1000000;                             // arrangements; past this the bay is too big to check
+function exhaustive(cap,onDone){
+  const start=ser(), seen=new Set([key(start)]);
+  const Q=[start], par=[-1], via=[null];
+  let head=0;
+  const finish=r=>{ deser(start); onDone(r); };
+  const step=()=>{
+    const t0=performance.now();
+    while(head<Q.length){
+      const s=Q[head]; Q[head]=null; deser(s);
+      if(atExit()){ const path=[]; for(let n=head;n>0;n=par[n]) path.push(via[n]); path.reverse();
+        return finish({result:"shortest",moves:path,explored:seen.size}); }
+      const ms=legalMoves(occGrid());
+      for(let j=0;j<ms.length;j++){
+        deser(s); applyMove(ms[j]);
+        const s2=ser(), k2=key(s2);
+        if(seen.has(k2)) continue;
+        seen.add(k2); Q.push(s2); par.push(head); via.push(ms[j]);
+      }
+      head++;
+      if(seen.size>cap) return finish({result:"too big",explored:seen.size});
+      if(performance.now()-t0>30){ deser(start); setTimeout(step,0); return; }   // keep the page responsive
+    }
+    finish({result:"impossible",explored:seen.size});
+  };
+  step();
+}
+// the planner and the exhaustive search on the same bay, and what their difference means
+function compareOne(done){
+  const plan=solve(P.budget);
+  exhaustive(EXH_CAP,ex=>{
+    const pm = plan.ok ? plan.moves.length : null, d = ex.moves ? ex.moves.length : null;
+    let kind;
+    if(ex.result==="too big") kind="too big";
+    else if(ex.result==="impossible") kind = plan.ok ? "error" : "no way out";
+    else if(!plan.ok) kind = plan.reason==="BLOCKED" ? "error" : "planner missed";
+    else kind = pm===d ? "agrees" : pm>d ? "planner longer" : "error";
+    done({kind,d,pm,plan,ex});
+  });
+}
+const turnsIn=list=>list.filter(m=>m.k==="r").length;
+function busy(v){ playing=v; lock(v); document.querySelectorAll(".dials input").forEach(x=>x.disabled=v); }
+let shortest=null;                                 // the last proved-shortest path, and the bay it belongs to
+function logCheck(r){
+  moves = r.d==null ? 0 : r.d; turns = r.ex.moves ? turnsIn(r.ex.moves) : 0;
+  const v = r.kind==="planner longer" ? "planner +"+(r.pm-r.d) : r.kind;
+  record("check",v,r.ex.explored);
+}
+$("bSmall").onclick=()=>{ if(playing) return;
+  [["dW",6],["dCars",6]].forEach(([id,v])=>{ $(id).value=v; $(id).dispatchEvent(new Event("input")); });
+  say("SMALL BAY","6 × 7 cells, 6 cars","Small enough to try every arrangement. Press Check this bay.",false);
+};
+$("bCheck").onclick=()=>{
+  if(playing) return;
+  busy(true); shortest=null;
+  say("CHECKING","Trying every arrangement, shortest first","Exhaustive search on this bay. A small bay takes a second; a big one is stopped at "+EXH_CAP.toLocaleString()+" arrangements.",false);
+  setTimeout(()=>compareOne(r=>{
+    busy(false); logCheck(r);
+    const n=r.ex.explored.toLocaleString();
+    if(r.kind==="agrees") say("KNOWN RESULT · AGREES","Planner and exhaustive search both find "+r.d+" moves",
+      "The planner found the true shortest retrieval ("+n+" arrangements checked). Here the toy is measuring the bay.",false);
+    else if(r.kind==="planner longer") say("KNOWN RESULT · PLANNER LONGER","True shortest: "+r.d+" moves. The planner took "+r.pm+" (+"+(r.pm-r.d)+")",
+      "A shorter way out exists. The extra moves are the planner's, not the bay's.",false);
+    else if(r.kind==="planner missed") say("KNOWN RESULT · PLANNER MISSED","A "+r.d+"-move way out exists; the planner gave up",
+      "Its OVER BUDGET was the planner's refusal, not the bay's.",false);
+    else if(r.kind==="no way out") say("KNOWN RESULT · NO WAY OUT","Exhaustive search proves this car cannot leave",
+      "All "+n+" arrangements reachable from here were tried. This refusal belongs to the bay.",false);
+    else if(r.kind==="too big") say("TOO BIG TO CHECK","More than "+EXH_CAP.toLocaleString()+" arrangements",
+      "Exhaustive search only works on small bays. Press Use a small bay, or lower Bay width and Cars stored.",false);
+    else say("CHECK FAILED","The planner and the exhaustive search contradict each other",
+      "Planner: "+(r.plan.ok?r.pm+" moves":r.plan.reason)+". Exhaustive: "+r.ex.result+(r.d!=null?" ("+r.d+")":"")+". This is a bug — please report it.",true);
+    if(r.ex.moves){ shortest={moves:r.ex.moves,bay:key(ser())}; $("bShortest").disabled=false; }
+    $("kGrid").innerHTML=[
+      ["true shortest (exhaustive)", r.d!=null ? r.d+" moves" : r.ex.result],
+      ["planner", r.plan.ok ? r.pm+" moves" : r.plan.reason.toLowerCase()],
+      ["arrangements checked", n]
+    ].map(x=>"<span>"+x[0]+" <b>"+x[1]+"</b></span>").join("");
+    $("kNote").textContent="";
+  }),30);
+};
+$("bShortest").onclick=()=>{
+  if(playing||!shortest) return;
+  if(key(ser())!==shortest.bay){ $("bShortest").disabled=true;
+    return say("BAY CHANGED","This is not the bay that was checked","Press Check this bay again.",true); }
+  const list=shortest.moves; shortest=null; $("bShortest").disabled=true;
+  playMoves(list,()=>say("OUT · SHORTEST","Retrieved in "+list.length+" moves, the proved minimum",
+    "Found by exhaustive search: no retrieval of this bay can be shorter.",false));
+};
+$("bCheck30").onclick=()=>{
+  if(playing) return;
+  busy(true); shortest=null;
+  const n=30, rs=[];
+  const sub=P.cols+" × "+P.rows+" · "+P.ncars+" cars · turn every "+P.gap;
+  const med=a=>{ if(!a.length) return "—"; const v=[...a].sort((x,y)=>x-y); return v[Math.floor(v.length/2)]; };
+  const show=final=>{
+    const c=k=>rs.filter(r=>r.kind===k).length, longer=rs.filter(r=>r.kind==="planner longer");
+    const extra=longer.map(r=>r.pm-r.d);
+    $("kGrid").innerHTML=[
+      ["bays checked", rs.length+" of "+n],
+      ["planner found the true shortest", c("agrees")],
+      ["planner took a longer route", c("planner longer")+(extra.length?" (+"+(extra.reduce((a,b)=>a+b,0)/extra.length).toFixed(1)+" moves on average, at most +"+Math.max.apply(null,extra)+")":"")],
+      ["planner gave up, a way out existed", c("planner missed")],
+      ["no way out, proved", c("no way out")],
+      ["too big to check", c("too big")],
+      ["median true shortest", med(rs.filter(r=>r.d!=null).map(r=>r.d))],
+      ["median planner, when solved", med(rs.filter(r=>r.plan.ok).map(r=>r.pm))]
+    ].concat(c("error")?[["contradictions (bugs)", c("error")]]:[]).map(x=>"<span>"+x[0]+" <b>"+x[1]+"</b></span>").join("");
+    $("kNote").textContent = final ? sub+". Each bay is shuffled at random; the planner keeps its budget of "+P.budget.toLocaleString()+" states. Every row is in the trace below — Copy trace for the raw table." : "Running … "+sub;
+  };
+  let i=0;
+  const next=()=>{
+    if(i>=n){ busy(false); show(true);
+      say("KNOWN RESULT · 30 BAYS","Planner against exhaustive search, "+n+" bays",
+        "The numbers are in the panel under the bay, and one row per bay is in the trace.",false); return; }
+    build(); i++;
+    say("CHECKING","Bay "+i+" of "+n,"Planner first, then every arrangement in order of moves.",false);
+    compareOne(r=>{ rs.push(r); logCheck(r); show(false); setTimeout(next,0); });
+  };
+  setTimeout(next,30);
 };
 
 /* ---------------- Claude proposes moves ---------------- */
