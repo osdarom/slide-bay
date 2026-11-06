@@ -161,8 +161,21 @@ details summary{cursor:pointer;font-size:12px;color:var(--muted)}
   </div>
 
   <div class="panel">
+    <h2>Learning from a reward · the storage strategy <span class="val">round 11</span></h2>
+    <p class="note" style="color:var(--muted)">Like the MicroDuck learning to walk, the garage's storage strategy is never told the rules. It decides where each arriving car goes, using six weights, and is scored only by money over a busy stretch of a day: parking fees, minus the cost of every platform move, minus a refund for every car later than the 15-step promise and a penalty for any car that can't get out. A population of strategies plays the same days; the best quarter breed the next generation; cars are added once the best keeps its promises. Nothing is drawn while it trains.</p>
+    <div class="bar"><button id="bTrain">Train the strategy</button><button id="bCompare">Compare on new days</button><button id="bLearned">Show its floor</button></div>
+    <div class="two">
+      <div id="trainChart"><p class="note">Press Train: 12 generations of 12 strategies, 2 days each (about 12 minutes; keep this tab in front). The chart shows the stored run until then.</p></div>
+      <div id="trainInfo" style="overflow-x:auto"></div>
+    </div>
+    <div id="compareOut" style="overflow-x:auto"></div>
+    <div id="dayOut" style="overflow-x:auto"></div>
+    <p class="note"><b>Results, Nov 5</b> (full planner, 20–100 new days per test): twelve separate trainings all earned more than the hand-made rules-v2 floor, and when demand or the building changed, retraining for half an hour won the lead back. Over a working day the learned strategy keeps the 95% promise up to <b>145 cars</b> (1.59× a conventional floor); at 140 cars it is on time 98% of the time against 92% for the rules floor, with about 7× fewer stuck cars. Details: lab_log.md, Rounds 11–28.</p>
+  </div>
+
+  <div class="panel">
     <h2>Evidence · every number the verdict depends on</h2>
-    <table id="ledger"><thead><tr><th>Number</th><th>Value</th><th>Tag</th><th>Where it comes from</th></tr></thead><tbody></tbody></table>
+    <table id="ledger" style="display:block;overflow-x:auto"><thead><tr><th>Number</th><th>Value</th><th>Tag</th><th>Where it comes from</th></tr></thead><tbody></tbody></table>
     <p class="note">Assumed numbers are red and can be edited: change one and the next runs use it. Time is reported in steps (sourced from the rules) and in seconds (only as good as the red numbers).</p>
   </div>
 
@@ -184,6 +197,7 @@ const cv=$("cv"), ctx=cv.getContext("2d");
 
 /* ================= the frame (rules v1) ================= */
 const P={layout:"base", lifts:"lane", fill:"aisle", demand:"fleet-lane", fleetShare:0.3, fleetReq:0.8, columns:true, ncars:150, sched:"asap", wallRule:true, extraTries:12, keepPlans:4, shake:0.8, searchMs:1200, searchNodes:60000, searchW:2,
+  feat:"v1", tidy:0, tidyMaxSteps:8, longExtra:0, fee:18, wearMove:0.01, energyCell:0.00003, lateCost:18, failCost:50, promiseSteps:15, dayEvents:30, trainGens:12, trainStart:100,
   secCell:2.0, secStart:3.0, secRot:10.0, secLift:60.0, msTick:120};
 const CONV=[88,94];                                   // sourced: Wells, Parking Structure Design Details, p.6
 const LAYOUTS={
@@ -198,7 +212,7 @@ function liftsFor(L,preset){ const r=L.rMid, W=L.W;
   return preset==="west"?[west]: preset==="ends"?[west,east]: preset==="middle"?[mid]: [west,mid,east]; }
 
 /* ================= state ================= */
-let L, W, H, blocked, liftCells, lifts=[], cars=[], occ, tgt=-1, sel=-1;
+let L, W, H, blocked, liftCells, lifts=[], goals=[], cars=[], occ, tgt=-1, sel=-1;
 let playing=false, anim=null, last=null, log=[], seq=0;
 const idx=(r,c)=>r*W+c, inB=(r,c)=>r>=0&&r<H&&c>=0&&c<W;
 const foot=(r,c,v)=> v?[[r,c],[r+1,c],[r+2,c]]:[[r,c],[r,c+1],[r,c+2]];
@@ -213,7 +227,10 @@ function deser(a){ cars.forEach((k,i)=>{ k.r=a[i*3]; k.c=a[i*3+1]; const g=a[i*3
 const keyOf=a=>String.fromCharCode.apply(null,a);
 const live=()=>cars.filter(k=>!k.gone).length;
 function usableCells(){ let n=0; for(let q=0;q<W*H;q++) if(!blocked[q]) n++; return n; }
-function shuffle(a){ for(let i=a.length-1;i>0;i--){ const j=(Math.random()*(i+1))|0; [a[i],a[j]]=[a[j],a[i]]; } return a; }
+// one source of randomness, so a training run can replay the same floors and requests for every strategy
+let rnd=Math.random;
+function seeded(s){ let a=(s*2654435761)>>>0; return ()=>{ a=a+0x6D2B79F5|0; let t=Math.imul(a^a>>>15,1|a); t=t+Math.imul(t^t>>>7,61|t)^t; return ((t^t>>>14)>>>0)/4294967296; }; }
+function shuffle(a){ for(let i=a.length-1;i>0;i--){ const j=(rnd()*(i+1))|0; [a[i],a[j]]=[a[j],a[i]]; } return a; }
 
 /* ================= build a floor ================= */
 // rules v1: never store a car where it can never turn (its 3 × 3 would always run off the floor)
@@ -227,7 +244,7 @@ function capacity(){ occ=new Int16Array(W*H).fill(-1); for(let q=0;q<W*H;q++) if
 function setFrame(){
   L=LAYOUTS[P.layout]; W=L.W; H=L.H;
   blocked=new Uint8Array(W*H); if(P.columns) for(const [r,c] of L.columns) blocked[idx(r,c)]=1;
-  lifts=liftsFor(L,P.lifts);
+  lifts=liftsFor(L,P.lifts); goals=lifts;
   liftCells=new Uint8Array(W*H); for(const l of lifts) for(const [r,c] of foot(l.r,l.c,l.v)) liftCells[idx(r,c)]=1;
   const cap=capacity(); const d=$("dCars"); d.max=cap; if(P.ncars>cap) P.ncars=cap; d.value=P.ncars;
 }
@@ -281,7 +298,8 @@ function legal(m){
   if(m.k==="r") return canRotate(m.car);
   for(let j=0;j+1<m.cars.length;j++) if(aheadOf(m.cars[j],m.s)!==m.cars[j+1]) return false;
   return freeAhead(m.cars[m.cars.length-1],m.s)>=m.d; }
-const onLift=i=>{ const k=cars[i]; return lifts.some(l=>l.r===k.r&&l.c===k.c&&l.v===k.v); };
+// the planner drives a car to one of the goal poses: the lifts for a retrieval, a chosen slot when storing an arrival
+const onLift=i=>{ const k=cars[i]; return goals.some(l=>l.r===k.r&&l.c===k.c&&l.v===k.v); };
 
 /* ================= the planner ================= */
 // 1 · the car's cheapest route to a lift, treating other platforms as movable, priced by how hard each is to clear:
@@ -290,7 +308,7 @@ const onLift=i=>{ const k=cars[i]; return lifts.some(l=>l.r===k.r&&l.c===k.c&&l.
 function route(ti,hard,shake){
   const N=2*W*H, dist=new Float64Array(N).fill(Infinity), prev=new Int32Array(N).fill(-1);
   const noise=new Float64Array(cars.length).fill(1);                 // round 5: shaken prices explore other routes
-  if(shake) for(let i=0;i<noise.length;i++) noise[i]=1+shake*(2*Math.random()-1);
+  if(shake) for(let i=0;i<noise.length;i++) noise[i]=1+shake*(2*rnd()-1);
   const pid=(r,c,v)=>(v*H+r)*W+c, dec=p=>{ const v=(p/(W*H))|0, rem=p-v*W*H; return {r:(rem/W)|0,c:rem%W,v}; };
   const ok=(r,c,v)=>foot(r,c,v).every(([a,b])=>inB(a,b)&&!blocked[idx(a,b)]);
   const laneFree=new Int16Array(cars.length);                       // free cells in each platform's own lane
@@ -302,7 +320,7 @@ function route(ti,hard,shake){
     if(laneFree[o]===0) p+=25; else if(laneFree[o]<3) p+=2;            // a lane with no room can't shift
     return (hard.has(o)?p+40:p)*noise[o]; };
   const cost=(q,alongV)=>price(occ[q],alongV===undefined?null:alongV);
-  const goal=new Set(lifts.map(l=>pid(l.r,l.c,l.v)));
+  const goal=new Set(goals.map(l=>pid(l.r,l.c,l.v)));
   const k0=cars[ti], s0=pid(k0.r,k0.c,k0.v);
   const heap=[[0,s0]]; dist[s0]=0;
   const push=(d,p)=>{ heap.push([d,p]); let i=heap.length-1; while(i>0){ const u=(i-1)>>1; if(heap[u][0]<=heap[i][0]) break; [heap[u],heap[i]]=[heap[i],heap[u]]; i=u; } };
@@ -640,10 +658,10 @@ function record(src,r,cnt){
   if(log.length>400) log.pop();
   $("logb").innerHTML=log.slice(0,120).map(e=>`<tr><td>${e.i}</td><td>${e.src}</td><td>${e.cars}</td><td>${e.dens}%</td><td>${e.lifts}</td><td>${e.steps}</td><td>${e.moves}</td><td>${e.moved}</td><td>${e.secs}</td><td${e.v==="out"||e.v==="agrees"?"":' class="r"'}>${e.v}</td></tr>`).join("");
 }
-function lock(v){ ["bGo","bNew","bRun","bSweep","bSmall","bCheck","bCheck30","sLayout","sLifts","sFill","sDemand","cCol","cWall","dCars"].forEach(id=>$(id).disabled=v); }
+function lock(v){ ["bGo","bNew","bRun","bSweep","bSmall","bCheck","bCheck30","sLayout","sLifts","sFill","sDemand","cCol","cWall","dCars","bCompare","bLearned"].forEach(id=>$(id).disabled=v); }
 function pickTarget(){ if(sel>=0&&!cars[sel].gone) return sel; let ids=cars.map((_,i)=>i).filter(i=>!cars[i].gone);
-  if(P.demand!=="uniform"){ const want=Math.random()<P.fleetReq, sub=ids.filter(i=>!!cars[i].fleet===want); if(sub.length) ids=sub; }   // round 9: requests follow demand
-  return ids.length?ids[(Math.random()*ids.length)|0]:-1; }
+  if(P.demand!=="uniform"){ const want=rnd()<P.fleetReq, sub=ids.filter(i=>!!cars[i].fleet===want); if(sub.length) ids=sub; }   // round 9: requests follow demand
+  return ids.length?ids[(rnd()*ids.length)|0]:-1; }
 
 function retrieve(){
   if(playing) return; const ti=pickTarget(); if(ti<0) return say("EMPTY","No cars on this floor","Press New floor.",true);
@@ -670,6 +688,173 @@ function play(r){
   };
   nextStep();
 }
+
+/* ================= round 11: a storage strategy that learns from a reward ================= */
+// The "duck" is the garage's storage strategy: six weights that score every free slot for an arriving car
+// (lower score = better slot). It is never told the rules rounds 1–10 found; it only gets a day's money.
+// Training is the cross-entropy method: try a population of weight sets on the same days, keep the best
+// quarter, sample the next population around them, and add cars once the best keeps its promises.
+const FEATS=["Fleet car far from the lane","Long-stay car far from the lane","Fleet car far from a lift","Long-stay car far from a lift","Leaves its column with no free slot","Blocks the exit lane"];
+const FEATS2=["Fleet car with cars between it and the lane","Long-stay car with cars between it and the lane","Would bury a fleet car deeper in its column"];
+const feats=()=>P.feat==="v2"?FEATS.concat(FEATS2):FEATS;
+const HAND=[2,-2,0.5,-0.5,4,6];          // rules v2 written as the same six weights, for comparison
+// the stored run (Nov 4, 2026: 12 generations × 12 strategies × 2 days, seed 777); Train replaces it
+const REP=(label,b)=>({label,hist:b.map((best,i)=>({gen:i+1,best}))});
+const STORED={reps:[REP("repeat R12a (reached 150)",[1798,1978,2158,2338,2501,2517,2624,2673,2600,2578,2613,2607]),REP("repeat R12b (stalled at 140)",[1781,1798,1978,2158,2337,2459,2483,2483,2478,2492,2410,2478]),
+    REP("R13, nine features",[1798,1977,2157,2337,2499,2517,2646,2606,2656,2629,2630,2662]),REP("R14, varied days (stalled at 140)",[1797,1978,2158,2335,2464,2476,2466,2441,2443,2491,2449,2449]),
+    REP("R15, expert head start (150 only at gen 12)",[1799,1978,2158,2331,2484,2500,2501,2484,2500,2484,2510,2630])],
+  day:{blocks:["1–10","11–20","21–30","31–40","41–50","51–60"],rows:[{who:"Learned (round 11)",pct:[2,3,2,1,3,3],money:2442},{who:"Rules v2 floor",pct:[2,9,5,4,10,3],money:2346}],
+  note:"Nov 5: the same 10 long days at 140 cars, full planner. The learned strategy stays near 2% all day (14 stuck, 95.8% on time); the rules-v2 floor runs higher and patchier (33 stuck, 94.2%)."},
+  w:[-0.49,-1.77,0.56,-1.59,1.12,-0.51],hist:[{gen:1,n:100,best:1798,mean:1348,lateRate:0,fail:0},{gen:2,n:110,best:1979,mean:1824,lateRate:0,fail:0},{gen:3,n:120,best:2158,mean:2100,lateRate:0,fail:0},{gen:4,n:130,best:2338,mean:2315,lateRate:0,fail:0},{gen:5,n:140,best:2498,mean:2393,lateRate:0.067,fail:0},{gen:6,n:140,best:2508,mean:2466,lateRate:0.033,fail:0},{gen:7,n:150,best:2639,mean:2498,lateRate:0.031,fail:2},{gen:8,n:150,best:2621,mean:2497,lateRate:0,fail:3},{gen:9,n:150,best:2646,mean:2500,lateRate:0,fail:2},{gen:10,n:150,best:2646,mean:2491,lateRate:0,fail:2},{gen:11,n:150,best:2643,mean:2529,lateRate:0.1,fail:1},{gen:12,n:150,best:2653,mean:2589,lateRate:0.065,fail:1}]};
+let learned=STORED.w.slice();             // the trained weights (from Train, or the stored run)
+const laneRow=()=>lifts.length?lifts[0].r:L.rMid;
+function slotFeatures(s,fleet){
+  const lr=laneRow(), dLane=Math.max(0,Math.abs(s.r+1-lr)-1)/H, dLift=Math.min(...lifts.map(l=>Math.abs(s.c-(l.c+1))))/W;
+  let free=0; for(let r=0;r<H;r++) if(occ[idx(r,s.c)]===-1) free++;
+  const colFull=free-3<3?1:0, blocks=(s.r<=lr+1&&s.r+2>=lr-1)?1:0;
+  const f=[fleet?dLane:0, fleet?0:dLane, fleet?dLift:0, fleet?0:dLift, colFull, blocks];
+  if(P.feat==="v2"){   // round 13: who stands between the slot and the lane, and whether this car would bury a fleet car
+    const above=s.r+2<lr-1, from=above?s.r+3:lr+2, to=above?lr-2:s.r-1, inWay=new Set();
+    for(let r=from;r<=to;r++){ const o=occ[idx(r,s.c)]; if(o>=0) inWay.add(o); }
+    let buries=0; for(let r=above?0:s.r+3;r<=(above?s.r-1:H-1);r++){ const o=occ[idx(r,s.c)]; if(o>=0&&cars[o].fleet){ buries=1; break; } }
+    f.push(fleet?inWay.size/5:0, fleet?0:inWay.size/5, buries); }
+  return f; }
+function freeSlots(){ const out=[];
+  for(let c=0;c<W;c++) for(let r=0;r+3<=H;r+=3){ const s={r,c,v:1}; if(turnable(s)&&fits(s)) out.push(s); }
+  if(!out.length) for(let c=0;c<W;c++) for(let r=0;r+3<=H;r++){ const s={r,c,v:1}; if(turnable(s)&&fits(s)) out.push(s); }
+  return out; }
+function chooseSlot(w,fleet){ let best=null, bs=Infinity;
+  for(const s of freeSlots()){ const f=slotFeatures(s,fleet); let sc=0; for(let i=0;i<f.length;i++) sc+=(w[i]||0)*f[i]; if(sc<bs-1e-9){ bs=sc; best=s; } }
+  return best; }
+// overnight: the strategy places every car itself (no moving cost counted)
+function fillByStrategy(w,n){ setFrame(); cars=[]; occ=new Int16Array(W*H).fill(-1); for(let q=0;q<W*H;q++) if(blocked[q]) occ[q]=-2;
+  const nf=Math.round(P.fleetShare*n), flags=shuffle(Array.from({length:n},(_,i)=>i<nf));
+  for(const fleet of flags){ const s=chooseSlot(w,fleet); if(!s) break; cars.push({r:s.r,c:s.c,v:1,fleet}); mark(cars.length-1); }
+  tgt=-1; sel=-1; last=null; }
+const planCost=plan=>{ let moves=0, cells=0; for(const m of plan){ if(m.k==="r"){ moves++; cells+=2; } else { moves+=m.cars.length; cells+=m.d*m.cars.length; } } return {moves,cells}; };
+function depart(acc){ sel=-1; const ti=pickTarget(); if(ti<0) return null;
+  const res=evaluate(ti); acc.requests++;
+  if(!res.ok){ acc.fail++; if(!cars[ti].fleet) acc.failLong++; acc.log.push({k:"out",ok:false,f:!!cars[ti].fleet}); return null; }
+  for(const m of res.plan) applyMove(m);
+  const pc=planCost(res.plan); acc.moves+=pc.moves; acc.cells+=pc.cells; acc.retSteps.push(res.steps.length); acc.log.push({k:"out",ok:true,steps:res.steps.length,secs:res.secs,f:!!cars[ti].fleet});
+  if(res.steps.length>P.promiseSteps){ acc.late++; if(!cars[ti].fleet) acc.lateLong++; }
+  const fleet=!!cars[ti].fleet; unmark(ti); cars[ti].gone=true; return {fleet}; }
+// an arrival appears on a free lift (a parked platform on it is moved off first), then is driven to the slot the strategy picks
+function arrive(w,fleet,acc){
+  let lift=lifts.find(l=>foot(l.r,l.c,l.v).every(([r,c])=>occ[idx(r,c)]===-1));
+  if(!lift){ lift=lifts[0]; tgt=-1; const forb=new Uint8Array(W*H), plan=[]; for(const [r,c] of foot(lift.r,lift.c,lift.v)) forb[idx(r,c)]=1;
+    for(const [r,c] of foot(lift.r,lift.c,lift.v)){ const o=occ[idx(r,c)]; if(o>=0&&!relocate(o,forb,0,plan,false)) return false; }
+    const pc=planCost(plan); acc.moves+=pc.moves; acc.cells+=pc.cells; }
+  const s=chooseSlot(w,fleet); if(!s) return false;
+  cars.push({r:lift.r,c:lift.c,v:lift.v,fleet}); const i=cars.length-1; mark(i);
+  goals=[s]; const res=evaluate(i); goals=lifts;
+  if(!res.ok){ unmark(i); cars[i].gone=true; return false; }
+  for(const m of res.plan) applyMove(m);
+  const pc=planCost(res.plan); acc.moves+=pc.moves; acc.cells+=pc.cells; acc.storeSteps+=res.steps.length; return true; }
+// round 22: a second action, tidying in quiet time. Platforms the planner shoved aside sit off the storage grid (or in
+// the lane); after each request up to P.tidy of them are driven back to the best free slot by the same weights,
+// if that takes no more than P.tidyMaxSteps steps. Its moves cost wear like any other.
+function tidy(w,acc){
+  const off=[]; for(let i=0;i<cars.length;i++){ const k=cars[i]; if(!k.gone&&(k.v!==1||k.r%3!==0)) off.push(i); }
+  let done=0, tried=0;
+  for(const i of off){ if(done>=P.tidy||tried>=2*P.tidy) break; tried++;
+    const s=chooseSlot(w,!!cars[i].fleet); if(!s) break;
+    goals=[s]; const res=evaluate(i); goals=lifts;
+    if(!res.ok||res.steps.length>P.tidyMaxSteps) continue;
+    for(const m of res.plan) applyMove(m);
+    const pc=planCost(res.plan); acc.moves+=pc.moves; acc.cells+=pc.cells; acc.tidied++; done++; } }
+// one episode = one busy stretch of a day: requests and returns alternate; the money is the reward
+// opt.vary (round 14): each day draws its own demand (domain randomization); opt.set overrides settings for that day only
+function runDay(w,seed,n,opt){
+  const keep=rnd; rnd=seeded(seed);
+  const saved={fleetShare:P.fleetShare,fleetReq:P.fleetReq,dayEvents:P.dayEvents,fee:P.fee,lateCost:P.lateCost,failCost:P.failCost,wearMove:P.wearMove,tidy:P.tidy,tidyMaxSteps:P.tidyMaxSteps,longExtra:P.longExtra};
+  if(opt&&opt.vary){ P.fleetShare=0.2+0.2*rnd(); P.fleetReq=0.65+0.25*rnd(); P.dayEvents=30+2*((rnd()*6)|0); }
+  if(opt&&opt.set) Object.assign(P,opt.set);
+  if(opt&&opt.baseFill){ const k=P.ncars; P.ncars=n; build(); P.ncars=k; }   // the rules-v2 floor (exit-lane fill, fleet by the lane) instead of the strategy's own
+  else fillByStrategy(w,n);
+  const acc={moves:0,cells:0,late:0,fail:0,turnedAway:0,requests:0,retSteps:[],storeSteps:0,log:[],tidied:0,lateLong:0,failLong:0}, out=[];
+  for(let e=0;e<P.dayEvents;e++){
+    if(e%2===0||!out.length){ const d=depart(acc); if(d) out.push(d.fleet); }
+    else { const ok=arrive(w,out.shift(),acc); acc.log.push({k:"in",ok}); if(!ok) acc.turnedAway++; }
+    if(P.tidy>0) tidy(w,acc); }
+  acc.money=n*P.fee-acc.moves*P.wearMove-acc.cells*P.energyCell-acc.late*P.lateCost-(acc.fail+acc.turnedAway)*P.failCost
+    -P.longExtra*(acc.lateLong*P.lateCost+acc.failLong*P.failCost); acc.n=n;   // round 29: long-stay misses can cost extra
+  Object.assign(P,saved); rnd=keep;
+  return acc; }
+const LIGHT={extraTries:4,keepPlans:2,searchMs:250};   // a lighter planner while training, so a day takes about a second
+function withLight(){ const saved={extraTries:P.extraTries,keepPlans:P.keepPlans,searchMs:P.searchMs}; Object.assign(P,LIGHT);
+  return ()=>Object.assign(P,saved); }
+let training=false, stopTrain=false, trainHist=Object.assign(STORED.hist.slice(),{stored:true});
+// a long working day (60 requests, 140 cars, the same 10 days for each): share stuck in each block of 10 requests
+function showDay(){ const d=STORED.day; if(!d) return;
+  $("dayOut").innerHTML=`<table><thead><tr><th>Over a long day · share of requests stuck</th>${d.blocks.map(b=>`<th>${b}</th>`).join("")}<th>Money</th></tr></thead><tbody>`+
+    d.rows.map(r=>`<tr><td>${r.who}</td>${r.pct.map(p=>`<td class="mono">${p}%</td>`).join("")}<td class="mono">${money(r.money)}</td></tr>`).join("")+
+    `</tbody></table><p class="note">${d.note}</p>`; }
+function trainStrategy(done){
+  const cfg={pop:12, elite:3, days:2, gens:P.trainGens, step:10, cap:0};
+  const restore=withLight(); const gr=seeded(777);
+  const gauss=()=>{ let u=0; while(!u) u=gr(); return Math.sqrt(-2*Math.log(u))*Math.cos(2*Math.PI*gr()); };
+  setFrame(); cfg.cap=+$("dCars").max;
+  const D=feats().length; let mu=new Array(D).fill(0), sd=new Array(D).fill(3), n=P.trainStart, gen=0; trainHist=[];
+  const finish=()=>{ restore(); training=false; done(); };
+  const runGen=()=>{
+    if(gen>=cfg.gens||stopTrain) return finish();
+    const pop=[mu.slice()]; while(pop.length<cfg.pop) pop.push(mu.map((m,i)=>m+sd[i]*gauss()));
+    const sc=pop.map(()=>({money:0,late:0,fail:0,req:0})); let k=0; const total=pop.length*cfg.days;
+    const tick=()=>{ if(stopTrain) return finish();
+      const p=(k/cfg.days)|0, d=k%cfg.days, r=runDay(pop[p],1000*gen+d+1,n), s=sc[p];
+      s.money+=r.money/cfg.days; s.late+=r.late; s.fail+=r.fail+r.turnedAway; s.req+=r.requests; k++;
+      $("vtitle").textContent="Training · generation "+(gen+1)+" of "+cfg.gens+" · "+n+" cars · day "+k+" of "+total;
+      if(k<total) return setTimeout(tick,0);
+      const ord=pop.map((w,i)=>Object.assign({w},sc[i])).sort((a,b)=>b.money-a.money), el=ord.slice(0,cfg.elite);
+      mu=mu.map((_,i)=>el.reduce((t,e)=>t+e.w[i],0)/el.length);
+      sd=sd.map((_,i)=>Math.sqrt(el.reduce((t,e)=>t+(e.w[i]-mu[i])**2,0)/el.length)+0.15);
+      const best=ord[0], lateRate=best.late/Math.max(1,best.req);
+      trainHist.push({gen:gen+1,n,best:best.money,mean:ord.reduce((t,o)=>t+o.money,0)/ord.length,lateRate,fail:best.fail});
+      learned=mu.slice(); drawTrain();
+      if(lateRate<=0.05&&best.fail===0) n=Math.min(cfg.cap,n+cfg.step);   // curriculum: more cars once it keeps its promises
+      gen++; setTimeout(runGen,0); };
+    tick(); };
+  runGen(); }
+const money=v=>(v<0?"−$":"$")+Math.abs(Math.round(v)).toLocaleString("en-US");
+function drawTrain(){
+  const h=trainHist; if(!h.length) return;
+  const w=520,ht=220,ml=56,mr=16,mt=14,mb=34, x0=ml,x1=w-mr,y0=ht-mb,y1=mt;
+  const vals=h.flatMap(o=>[o.best,o.mean]), lo=Math.min(0,...vals), hi=Math.max(...vals)*1.08;
+  const xs=g=>x0+(h.length<2?0.5:(g-1)/(h.length-1))*(x1-x0), ys=v=>y0-(v-lo)/(hi-lo)*(y0-y1);
+  const ink=css("--ink"), mut=css("--muted"), t=css("--target"), line=css("--line");
+  let g=`<svg viewBox="0 0 ${w} ${ht}" width="100%" style="display:block;font-family:IBM Plex Sans,Segoe UI,sans-serif">`;
+  g+=`<line x1="${x0}" x2="${x1}" y1="${y0}" y2="${y0}" stroke="${line}"/><line x1="${x0}" x2="${x0}" y1="${y0}" y2="${y1}" stroke="${line}"/>`;
+  for(let k=0;k<=4;k++){ const v=lo+(hi-lo)*k/4; g+=`<text x="${x0-5}" y="${ys(v)+3}" font-size="9.5" fill="${mut}" text-anchor="end">${money(v)}</text>`; }
+  const pl=key=>h.map(o=>`${xs(o.gen).toFixed(1)},${ys(o[key]).toFixed(1)}`).join(" ");
+  // the repeat runs (Nov 5), faint, on the same axes: does it learn the same thing again?
+  if(h.stored) for(const rp of STORED.reps||[]) g+=`<polyline points="${rp.hist.map(o=>`${xs(Math.min(o.gen,h.length)).toFixed(1)},${ys(Math.max(lo,o.best)).toFixed(1)}`).join(" ")}" fill="none" stroke="${t}" stroke-width="1.2" opacity=".3"><title>${rp.label}</title></polyline>`;
+  g+=`<polyline points="${pl("mean")}" fill="none" stroke="${mut}" stroke-width="1.5" stroke-dasharray="4 3"/><polyline points="${pl("best")}" fill="none" stroke="${t}" stroke-width="2.2"/>`;
+  h.forEach((o,i)=>{ g+=`<circle cx="${xs(o.gen)}" cy="${ys(o.best)}" r="3" fill="${t}"><title>generation ${o.gen}: ${o.n} cars, best ${money(o.best)} a day, ${Math.round(o.lateRate*100)}% late</title></circle>`;
+    if(i===0||o.n!==h[i-1].n) g+=`<text x="${xs(o.gen)}" y="${ys(o.best)-8}" font-size="9.5" fill="${ink}" text-anchor="middle">${o.n} cars</text>`; });
+  g+=`<text x="${(x0+x1)/2}" y="${ht-4}" font-size="10" fill="${mut}" text-anchor="middle">generation (solid: best strategy · dashed: population average${h.stored&&STORED.reps?" · faint: 5 other trainings, Nov 5":""})</text></svg>`;
+  $("trainChart").innerHTML=g; showWeights(); }
+function showWeights(){ const w=learned;
+  $("trainInfo").innerHTML=`<table><thead><tr><th>What a slot is penalised for</th><th>Rules v2, by hand</th><th>Learned from the reward</th></tr></thead><tbody>`+
+    feats().map((f,i)=>`<tr><td>${f}</td><td class="mono">${(HAND[i]??0).toFixed(1)}</td><td class="mono">${w&&w[i]!=null?w[i].toFixed(1):"—"}</td></tr>`).join("")+`</tbody></table>`+
+    `<p class="note">A positive weight avoids that kind of slot; a negative one seeks it. Only the signs and the sizes relative to each other matter.</p>`; }
+// held-out days: the learned strategy against the hand-written rules and a strategy with no preferences
+function compareStrategies(done){
+  const restore=withLight(), levels=[130,140,150], days=8;
+  const who=[["learned",learned||HAND,{}],["rules v2 floor",HAND,{baseFill:true}],["hand rules as weights",HAND,{}],["no preference",[0,0,0,0,0,0],{}]];
+  const jobs=[]; for(const n of levels) for(const [name,w,o] of who) jobs.push({n,name,w,o});
+  const res=jobs.map(()=>({money:0,late:0,fail:0,req:0,steps:[]})); let j=0, d=0;
+  const tick=()=>{ const jb=jobs[j], r=runDay(jb.w,9000+d,jb.n,jb.o), s=res[j];
+    s.money+=r.money/days; s.late+=r.late; s.fail+=r.fail+r.turnedAway; s.req+=r.requests; s.steps.push(...r.retSteps);
+    $("vtitle").textContent="Comparing · "+jb.name+" · "+jb.n+" cars · day "+(d+1)+" of "+days;
+    if(++d>=days){ d=0; j++; }
+    if(j<jobs.length) return setTimeout(tick,0);
+    restore();
+    $("compareOut").innerHTML=`<table><thead><tr><th>Cars</th><th>Strategy</th><th>Money per busy day</th><th>Late</th><th>Failed</th><th>Median steps</th></tr></thead><tbody>`+
+      jobs.map((jb,i)=>{ const s=res[i]; return `<tr><td>${jb.n}</td><td>${jb.name}</td><td class="mono">${money(s.money)}</td><td class="mono">${Math.round(100*s.late/Math.max(1,s.req))}%</td><td class="mono">${s.fail}</td><td class="mono">${med(s.steps)??"—"}</td></tr>`; }).join("")+
+      `</tbody></table><p class="note">The same ${days} new days (never seen in training) for every strategy; ${P.dayEvents} requests and returns per day.</p>`;
+    done(res,jobs); };
+  setTimeout(tick,0); }
 
 /* ---- batches ---- */
 const med=a=>{ if(!a.length) return null; const v=[...a].sort((x,y)=>x-y); return v[Math.floor(v.length/2)]; };
@@ -774,7 +959,12 @@ const LEDGER=[
   ["Floor slope","level","assumed","real decks slope 1–1.5% for drainage (Wells p.5)"],
   ["Fleet cars (Demand)","30% of cars get 80% of requests","assumed","placeholder until real fleet data; Round 9"],
   ["The promise","95% of retrievals within 15 steps","assumed","Bay Lab loop charter; converts to minutes once speeds are sourced"],
-  ["Typical retrieval, automated garages","2–3 min (machine time from 90 s)","sourced","Westfalia / Architectural Record CE (2020); Boomerang CE: average ~2.5 min"]
+  ["Typical retrieval, automated garages","2–3 min (machine time from 90 s)","sourced","Westfalia / Architectural Record CE (2020); Boomerang CE: average ~2.5 min"],
+  ["Parking fee per car per day (reward)","$18","sourced","SpotHero, Downtown Austin average commuter price $12–25 (unit not stated, read as per stay); midpoint"],
+  ["Energy per platform-cell moved","$0.00003","derived","2 t on rolling wheels (resistance 0.015), 70% motor efficiency, 2.08 m cell ≈ 0.25 Wh, at an assumed $0.11/kWh"],
+  ["Wear per platform move","$0.01","assumed","placeholder for maintenance per move; energy alone is almost free"],
+  ["Late car (over 15 steps)","−$18","assumed","refund of that day's fee"],
+  ["Car that can't get out or in","−$50","assumed","refund plus a lost trip or manual recovery"]
 ];
 function ledger(){ $("ledger").tBodies[0].innerHTML=LEDGER.map(([n,v,tag,src])=>{
     const val = (v in P) ? `<input type="number" step="0.5" min="0" data-k="${v}" value="${P[v]}"> s` : v;
@@ -795,6 +985,17 @@ $("sFill").onchange=e=>{ P.fill=e.target.value; build(); stats(); };
 $("cCol").onchange=e=>{ P.columns=e.target.checked; build(); };
 $("cWall").onchange=e=>{ P.wallRule=e.target.checked; build(); };
 $("sDemand").onchange=e=>{ P.demand=e.target.value; assignFleet(); draw(); };
+$("bTrain").onclick=()=>{ if(training){ stopTrain=true; return; } if(playing) return;
+  if(P.layout!=="base"){ say("BASELINE FLOOR","Training runs on the baseline floor","Switch Floor to the baseline first.",true); return; }
+  training=true; stopTrain=false; playing=true; lock(true); $("bTrain").textContent="Stop";
+  say("TRAINING","Training the storage strategy","Each strategy plays the same busy days; the best quarter breed the next generation.",false);
+  trainStrategy(()=>{ playing=false; lock(false); $("bTrain").textContent="Train the strategy"; build();
+    const h=trainHist.at(-1); say("TRAINED",h?"Generation "+h.gen+": "+h.n+" cars, best "+money(h.best)+" a busy day":"Stopped","Its weights are in the table; Compare tests them on days it never saw.",false); }); };
+$("bCompare").onclick=()=>{ if(playing) return; if(P.layout!=="base") return; playing=true; lock(true);
+  say("COMPARING","Learned strategy, rules v2 by hand, and no preference","The same new days for each; this takes a few minutes.",false);
+  compareStrategies(()=>{ playing=false; lock(false); build(); say("DONE","Comparison finished","The table under the chart has money, late cars and failures for each strategy.",false); }); };
+$("bLearned").onclick=()=>{ if(playing||P.layout!=="base") return; const keep=rnd; rnd=seeded(1); fillByStrategy(learned||HAND,P.ncars); rnd=keep; draw(); stats();
+  say("ITS FLOOR",(learned?"The learned":"The hand-written")+" strategy filled "+live()+" cars","Each car went where its weights scored best. Retrieve works on this floor.",false); };
 $("dCars").addEventListener("input",e=>{ P.ncars=+e.target.value; build(); });
 $("cMs").addEventListener("input",e=>{ P.msTick=+e.target.value; });
 $("bTheme").onclick=()=>{ const cur=document.documentElement.getAttribute("data-theme");
@@ -807,7 +1008,7 @@ $("bCsv").onclick=async()=>{ if(!log.length) return say("NOTHING TO COPY","The l
   try{ await navigator.clipboard.writeText(csv); say("COPIED",log.length+" rows on your clipboard","Paste into a spreadsheet.",false); }
   catch(e){ const a=document.createElement("a"); a.href=URL.createObjectURL(new Blob([csv],{type:"text/csv"})); a.download="baylab_log.csv"; a.click(); say("SAVED","baylab_log.csv","The browser blocked the clipboard, so the log was downloaded instead.",false); } };
 addEventListener("resize",fit);
-ledger(); build(); fit();
+ledger(); build(); fit(); drawTrain(); showDay();
 })();
 </script>
 </body></html>
