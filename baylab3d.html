@@ -98,12 +98,56 @@ details summary{cursor:pointer;font-size:12px;color:var(--muted)}
 #money3 .l span{letter-spacing:0;opacity:.7}
 #money3 .v{font-size:19px;font-weight:600;font-variant-numeric:tabular-nums}
 #money3 .s{font-size:10.5px;opacity:.85}
+#promise3{position:absolute;right:12px;top:10px;width:min(268px,46%);padding:8px 12px 9px;border-radius:10px;line-height:1.3;pointer-events:none;
+  background:var(--pill-bg,rgba(7,11,20,.86));color:var(--pill-ink,#C9D3E8);border:1px solid var(--pill-edge,#3a4560)}
+#promise3 .t{font:600 10px "IBM Plex Mono",monospace;letter-spacing:.09em}
+#promise3 .t span{letter-spacing:0;opacity:.7;font-weight:400}
+#promise3 .q{font:11px "IBM Plex Sans",system-ui,sans-serif;opacity:.92;margin:1px 0 4px}
+#promise3 .r{display:flex;justify-content:space-between;align-items:baseline;font:10px "IBM Plex Mono",monospace;letter-spacing:.06em;margin-top:6px}
+#promise3 .r b{font-size:13px;font-weight:600;letter-spacing:0;font-variant-numeric:tabular-nums}
+#promise3 .bar{--n:15;position:relative;height:10px;margin-top:3px;border-radius:5px;overflow:hidden;background:rgba(127,140,170,.24)
+  linear-gradient(90deg,rgba(127,140,170,.55) 1px,transparent 1px) 0 0/calc(100%/var(--n)) 100% repeat-x}
+#promise3 .bar i{position:absolute;top:0;bottom:0}
+#promise3 .fill{left:0;width:0;background:var(--acc);transition:width .3s ease,background .2s;opacity:.92}
+#promise3 .over{display:none;right:0;background:repeating-linear-gradient(135deg,var(--warn) 0 3px,transparent 3px 6px);opacity:.45}
+#promise3 .tick{width:2px;background:var(--pill-ink)}
+#promise3 .bar[data-c="good"] .fill{background:var(--good)}
+#promise3 .bar[data-c="warn"] .fill{background:var(--warn)}
+#promise3 .bar[data-c="bad"]{box-shadow:inset 0 0 0 1px var(--bad)}
+#promise3 .n{font:10.5px "IBM Plex Sans",system-ui,sans-serif;opacity:.85;margin-top:3px;min-height:1.3em}
+@media (max-width:720px){   /* a narrow window: the cards go under the scene instead of covering it */
+  #hint3{display:none!important}
+  .v3 #stage3{display:flex!important;flex-direction:column;gap:8px}
+  .v3 #cv3{order:1}
+  .v3 #ctl3,.v3 #money3,.v3 #promise3{position:static;width:auto}
+  .v3 #ctl3{order:2;justify-content:flex-end}
+  .v3 #money3{order:3}
+  .v3 #promise3{order:4}
+}
+/* the first look (3D view only): scene, status, actions, the two key settings, the numbers, the key; everything else after */
+.v3 .wrap>*{order:20}
+.v3 .wrap>header{order:0}
+.v3 .wrap>#stage3{order:1}
+.v3 .wrap>.verdict{order:2}
+.v3 .wrap>.bar{order:3}
+.v3 .wrap>#dialsPanel{order:4}
+.v3 .wrap>.foot{order:5}
+.v3 .wrap>.legend{order:6}
+.v3 #bGo{order:1} .v3 #bNew{order:2} .v3 .lab3.t1{order:3} .v3 #bRun{order:4} .v3 #bSweep{order:5} .v3 .lab3.t2{order:6} .v3 #cMs{order:7}
+.v3 .sp3{order:8} .v3 #segV3{order:9} .v3 #bTheme{order:10} .v3 #bCsv{order:11}
+.lab3{font:600 10px "IBM Plex Mono",monospace;letter-spacing:.09em;color:var(--faint);margin:0 -2px 0 10px}
+.v3 #bCsv{background:transparent;border-color:transparent;color:var(--faint);text-decoration:underline;font-size:11.5px}
+.v3 .dials:not(.open3) .dial:not(.keep){display:none}
+#bMore3{align-self:end;justify-self:start;font-size:12px}
+#ctl3{position:absolute;right:12px;bottom:10px;display:flex;gap:7px;align-items:center}
+#ctl3 button{background:var(--pill-bg,rgba(7,11,20,.86));color:var(--pill-ink,#C9D3E8);border-color:var(--pill-edge,#3a4560);padding:6px 11px}
+#ctl3 button:hover{filter:brightness(1.3)}
 .seg{display:inline-flex}
 .seg button{border-radius:0}
 .seg button:first-child{border-radius:3px 0 0 3px}
 .seg button:last-child{border-radius:0 3px 3px 0;margin-left:-1px}
 .seg button[aria-pressed="true"]{background:var(--ink);color:var(--panel);border-color:var(--ink)}
-#hint3{color:var(--faint);font-size:11px}
+#hint3{position:absolute;left:12px;bottom:10px;max-width:44%;font:10.5px/1.3 "IBM Plex Sans",system-ui,sans-serif;color:var(--pill-ink,#C9D3E8);opacity:.72;pointer-events:none}
 .v3 .legend span:nth-child(3) .sw{background:var(--v3fleet)!important;border-color:var(--car-edge)!important;border-width:1px!important}
 .v3 .legend span:nth-child(5) .sw{border-color:var(--v3route)!important}
 .legend .l3{display:none}
@@ -132,7 +176,7 @@ details summary{cursor:pointer;font-size:12px;color:var(--muted)}
     <button id="bCsv">Copy log (CSV)</button>
     <input type="range" id="cMs" min="30" max="300" step="10" value="120" style="width:92px" aria-label="Playback speed" title="Playback speed (right = slower)">
     <span style="flex:1"></span>
-    <span class="seg" role="group" aria-label="View"><button id="bV2" aria-pressed="true" title="Flat plan view">2D</button><button id="bV3" aria-pressed="false" title="3D isometric view">3D</button></span>
+    <span class="seg" id="segV3" role="group" aria-label="View"><button id="bV2" aria-pressed="true" title="Flat plan view">2D</button><button id="bV3" aria-pressed="false" title="3D isometric view">3D</button></span>
     <span class="seg on3" id="rot3" style="display:none" role="group" aria-label="Turn the 3D view"><button id="bRotL" title="Turn the view left (Q, or the left arrow over the scene)">↺</button><button id="bRotR" title="Turn the view right (E, or the right arrow over the scene)">↻</button></span>
     <button class="on3" id="bLook" style="display:none" title="Switch between the night palette and the day palette (day suits a bright room or a projector)">☾ Night</button>
     <span class="on3" id="hint3" style="display:none">↺ ↻ or Q / E turn the view · Ctrl + wheel zooms · double-click resets</span>
@@ -689,7 +733,7 @@ function fit(){ const w=cv.parentElement.clientWidth-32, cw=Math.max(320,Math.mi
    one scene: Night (obsidian, champagne, neon) and Day (dusk pastel, for a bright room or a projector). */
 const cv3=$("cv3");
 let view3=false, R3=null, S3=null, CAM3=null, SUN3=null, HEMI3=null, STAT3=null, P3=null, FX3=null, SEL3=null, UNIT3=null, FLAT3=null, TEX3=null, PC=null;
-let D3=null, M3=null, T3=null, CA3=null, RAY3=null, NDC3=null, PT3=null, PLANE0=null, STAGE3=null, HUD3=null;
+let D3=null, M3=null, T3=null, CA3=null, RAY3=null, NDC3=null, PT3=null, PLANE0=null, STAGE3=null, HUD3=null, PRM3=null, CTL3=null;
 const V3={az:Math.PI/4, azTo:Math.PI/4, tx:0, tz:0, zoom:1, key:"", dim:0, busy:false, raf:0, last:0, aspect:2, hover:false, fades:[], cur:[], ids:[], hot:-1, hoverRaf:0, pops:[]};
 const EL3=Math.atan(1/Math.SQRT2), CAP3=256, TILE3=1024;   // 35.26 degrees: true isometric
 // the palettes: the scene, the backdrop, the effects and the legend all read from the look in use
@@ -728,7 +772,8 @@ function paintLook(){
   const L=LOOKS[LOOK]; PAL=L.pal; if(!R3) return;
   for(const k in PAL) if(PAL[k][0]==="#") PC[k].setStyle(PAL[k],THREE.SRGBColorSpace);   // colours only; the translucent pill colours are used as CSS
   cv3.style.background=L.bg;
-  if(STAGE3){ STAGE3.style.setProperty("--pill-bg",PAL.pillBg); STAGE3.style.setProperty("--pill-ink",PAL.pillInk); STAGE3.style.setProperty("--pill-edge",PAL.edge); }
+  if(STAGE3){ STAGE3.style.setProperty("--pill-bg",PAL.pillBg); STAGE3.style.setProperty("--pill-ink",PAL.pillInk); STAGE3.style.setProperty("--pill-edge",PAL.edge);
+    STAGE3.style.setProperty("--good",PAL.good); STAGE3.style.setProperty("--warn",PAL.warn); STAGE3.style.setProperty("--bad",PAL.platRefused); STAGE3.style.setProperty("--acc",PAL.platTarget); }
   HEMI3.color.copy(PC.hemiSky); HEMI3.groundColor.copy(PC.hemiGround); HEMI3.intensity=L.hemi; SUN3.color.copy(PC.sun); SUN3.intensity=L.sun;
   for(const k in FX3){ const m=FX3[k].material; m.blending=L.add?THREE.AdditiveBlending:THREE.NormalBlending; m.opacity=k==="tile"?L.tileOp:(k==="trail"?1:(k==="halo"?.9:.95)); m.needsUpdate=true; }
   V3.key="";
@@ -740,6 +785,12 @@ function init3(){
     // the stage: the 3D canvas moves into a wrapper that also carries the day-money meter (created only when 3D is first used)
     STAGE3=document.createElement("div"); STAGE3.id="stage3"; cv3.parentNode.insertBefore(STAGE3,cv3); STAGE3.appendChild(cv3);
     HUD3=document.createElement("div"); HUD3.id="money3"; HUD3.innerHTML='<div class="l">DAY MONEY<span> · assumed prices</span></div><div class="v"></div><div class="s"></div>'; STAGE3.appendChild(HUD3);
+    PRM3=document.createElement("div"); PRM3.id="promise3";   // the promise bar (this retrieval) and gauge (the last 30), top right
+    PRM3.innerHTML='<div class="t">THE PROMISE<span> · assumed</span></div><div class="q"></div>'
+      +'<div class="r"><span>THIS RETRIEVAL</span><b class="v1"></b></div><div class="bar b1"><i class="over"></i><i class="fill"></i><i class="tick"></i></div><div class="n n1"></div>'
+      +'<div class="r"><span>LAST 30 RETRIEVALS</span><b class="v2"></b></div><div class="bar b2"><i class="fill"></i><i class="tick"></i></div><div class="n n2"></div>';
+    STAGE3.appendChild(PRM3);
+    CTL3=document.createElement("div"); CTL3.id="ctl3"; STAGE3.appendChild(CTL3); CTL3.append($("rot3"),$("bLook")); STAGE3.appendChild($("hint3"));   // camera controls and the hint sit on the scene, as in a game
     PC={}; for(const k in PAL) if(PAL[k][0]==="#") PC[k]=new THREE.Color().setStyle(PAL[k],THREE.SRGBColorSpace);
     R3=new THREE.WebGLRenderer({canvas:cv3,antialias:true,alpha:true}); R3.setClearColor(0x000000,0);
     R3.setPixelRatio(Math.min(window.devicePixelRatio||1,2));
@@ -854,7 +905,53 @@ function watch3(){
   MS3.was=playing;
   if(!playing&&tgt>=0&&cars[tgt]&&!cars[tgt].gone&&last&&last.show===false&&MS3.refFor!==last){   // a refusal, recorded by the page as last={show:false}
     MS3.refFor=last; MS3.money-=P.failCost; MS3.stuck++; hud3(PAL.platRefused);
-    const [r0,c0]=centre(cars[tgt]); if(view3) MS3.queue.push({kind:"stuck",delta:-P.failCost,x:c0+.5,z:r0+.5}); } }
+    const [r0,c0]=centre(cars[tgt]); if(view3) MS3.queue.push({kind:"stuck",delta:-P.failCost,x:c0+.5,z:r0+.5}); }
+  prm3(); }
+
+/* the promise, made visible. THE BAR: the steps of the retrieval on screen, counted against the promise (P.promiseSteps = 15). It reads the page's own
+   "STEP n / N" readout while a retrieval plays and `last` afterwards; the stretch past the promise is hatched amber, a refusal is crimson.
+   THE GAUGE: every 30 batch retrievals the page records in its log (Run 30, or one level of the Density sweep) make one reading: how many reached
+   a lift within the promise, against the 95% line. A retrieval that failed counts as not on time, as runDay counts it. Both only read page state. */
+const PROMISE_PCT=95;   // the page's ledger states "95% of retrievals within 15 steps" (assumed); only the 15 is a setting (P.promiseSteps)
+const PB3={for:null, rf:null, seq:0, grp:{n:0,ok:0,cars:0}, read:null, sig:""};
+function promiseRead(){
+  const fresh=[]; for(const e of log){ if(e.i<=PB3.seq) break; fresh.push(e); } if(!fresh.length) return;   // the log is newest first
+  PB3.seq=fresh[0].i;
+  for(let j=fresh.length-1;j>=0;j--){ const e=fresh[j]; if(e.src!=="batch") continue;
+    const g=PB3.grp; g.n++; if(e.v==="out"&&e.steps<=P.promiseSteps) g.ok++; g.cars=e.cars;
+    if(g.n===30){ PB3.read={n:30,ok:g.ok,cars:g.cars}; PB3.grp={n:0,ok:0,cars:0}; } } }
+function prm3(force){
+  promiseRead(); if(!PRM3) return;
+  const lim=P.promiseSteps, m=/^STEP (\d+) \/ (\d+)$/.exec($("vmark").textContent), gone=tgt>=0&&!!cars[tgt]&&!!cars[tgt].gone;
+  if(playing&&m&&last&&last.show&&last.steps) PB3.for=last;
+  let a;   // this retrieval
+  if(!playing&&tgt>=0&&cars[tgt]&&!gone&&last&&last.show===false){ const w=/^REFUSED · (.+)$/.exec($("vmark").textContent); a={s:"refused",why:w?w[1]:"REFUSED"};   // the page's own reason: NO ROUTE (geometry) or PLANNER FAILED
+    if(!w&&PB3.rf!==last){ PB3.rf=last; setTimeout(()=>prm3(),0); } }   // the page draws a moment before it writes the reason, so read it once more after
+  else if(playing&&m&&PB3.for===last) a={s:"run",step:+m[1],tot:+m[2]};
+  else if(!playing&&gone&&last&&last.show&&last.steps&&PB3.for===last) a={s:"done",step:last.steps.length,tot:last.steps.length};
+  else a={s:"idle"};
+  const g=PB3.grp.n>0?{n:PB3.grp.n,ok:PB3.grp.ok,run:true}:PB3.read?{n:PB3.read.n,ok:PB3.read.ok,cars:PB3.read.cars}:null;
+  const sig=JSON.stringify([a,g,lim]); if(sig===PB3.sig&&!force) return; PB3.sig=sig;
+  const q=s=>PRM3.querySelector(s), plural=n=>n+" step"+(n===1?"":"s");
+  q(".q").textContent=PROMISE_PCT+" of every 100 call-backs reach a lift within "+lim+" steps";
+  // bar: this retrieval, scaled to whichever is longer, the promise or the plan
+  const tot=a.tot||0, scale=Math.max(lim,tot), late=tot>lim, b1=q(".b1");
+  b1.style.setProperty("--n",scale); q(".over").style.display=late?"block":"none"; q(".over").style.left=(lim/scale*100)+"%"; q(".b1 .tick").style.left="calc("+(lim/scale*100)+"% - 1px)";
+  q(".b1 .fill").style.width=(a.s==="run"||a.s==="done"?Math.min(1,a.step/scale)*100:0)+"%";
+  b1.dataset.c=a.s==="refused"?"bad":a.s==="done"?(late?"warn":"good"):a.s==="run"?(a.step>lim?"warn":"acc"):"acc";
+  q(".v1").textContent=a.s==="run"?"STEP "+a.step+" / "+a.tot:a.s==="done"?plural(a.tot).toUpperCase():a.s==="refused"?a.why:"—";
+  q(".n1").textContent=a.s==="idle"?"Choose a car and press Retrieve: its steps are counted against the "+lim+".":
+    a.s==="refused"?(a.why==="NO ROUTE"?"Refused: no way out exists, so the promise can't be met. It costs "+money3(P.failCost)+".":"Refused: the planner found no way out (one may exist). It costs "+money3(P.failCost)+"."):
+    a.s==="run"?(late?"This one will run "+(tot-lim)+" past the promise.":"A step is one moment when every platform moves at once."):
+    late?"Late: "+(tot-lim)+" past the promise. The fee is refunded.":tot===lim?"On time: exactly on the promise. The fee is kept.":"On time: "+plural(lim-tot)+" to spare. The fee is kept.";
+  // gauge: the last 30, against the 95% line
+  const pct=g?g.ok/g.n*100:0, hit=g&&!g.run&&pct>=PROMISE_PCT, b2=q(".b2");
+  b2.style.setProperty("--n",20); q(".b2 .tick").style.left="calc("+PROMISE_PCT+"% - 1px)"; q(".b2 .fill").style.width=(g?pct:0)+"%";
+  b2.dataset.c=!g||g.run?"acc":hit?"good":"warn";
+  q(".v2").textContent=!g?"—":g.run?g.ok+" of "+g.n:g.ok+" of "+g.n+" · "+Math.round(pct)+"%";
+  q(".n2").textContent=!g?"Run 30 retrievals, or the Density sweep, to test the "+PROMISE_PCT+"%.":
+    g.run?"Running … "+g.n+" of 30 done.":
+    g.cars+" cars: "+(hit?"at or above":"below")+" the "+PROMISE_PCT+"% line. A small sample: one car is "+Math.round(100/g.n)+" points."; }
 // the pop-up: a pill that rises from the lift and fades, drawn as a sprite so it follows the camera
 function addPop(ev){
   const col=ev.kind==="ok"?PAL.good:ev.kind==="late"?PAL.warn:PAL.platRefused;   // green kept, amber late, crimson stuck
@@ -922,7 +1019,9 @@ function draw3(){
     for(let j=V3.pops.length-1;j>=0;j--){ const p=V3.pops[j], t=(now-p.born)/p.dur;
       if(t>=1){ S3.remove(p.sp); p.sp.material.map.dispose(); p.sp.material.dispose(); V3.pops.splice(j,1); continue; }
       const e=1-Math.pow(1-t,3), pop=t<.08?1.14-.14*(t/.08):1, s=wpx*pop/ppu;
-      p.sp.position.set(p.x,1.15+1.7*e,p.z); p.sp.material.opacity=t<.07?t/.07:(t>.72?(1-t)/.28:1); p.sp.scale.set(s,s*220/600,1); busy=true; } }
+      p.sp.position.set(p.x,1.15+1.7*e,p.z); p.sp.material.opacity=t<.07?t/.07:(t>.72?(1-t)/.28:1); p.sp.scale.set(s,s*220/600,1); busy=true;
+      const hpx=wpx*pop*220/600; PT3.copy(p.sp.position).project(CAM3);   // a car near the far edge would push its pill off the top of the scene: slide the pill down to stay inside it
+      p.sp.center.set(.5,Math.max(0,Math.min(1,(8-((1-PT3.y)/2*cv3.clientHeight-hpx))/hpx))); } }
   const setN=(mesh,c)=>{ mesh.count=c; mesh.instanceMatrix.needsUpdate=true; if(mesh.instanceColor) mesh.instanceColor.needsUpdate=true; };
   setN(P3.plat,n); setN(P3.rim,n); setN(P3.body,n); setN(P3.cab,n); setN(P3.wheel,n*4); setN(P3.line,n*2); setN(FX3.tile,nc); setN(FX3.trail,nt); setN(FX3.halo,nh); setN(FX3.turn,nu);
   // outline of the car chosen with a click
@@ -978,10 +1077,24 @@ cv3.addEventListener("dblclick",()=>{ V3.zoom=1; V3.tx=0; V3.tz=0; V3.azTo=Math.
 addEventListener("keydown",e=>{ if(!view3||e.ctrlKey||e.metaKey||e.altKey||/^(INPUT|SELECT|TEXTAREA)$/.test((e.target&&e.target.tagName)||"")) return;
   const l=e.key==="q"||e.key==="Q"||(V3.hover&&e.key==="ArrowLeft"), r=e.key==="e"||e.key==="E"||(V3.hover&&e.key==="ArrowRight");
   if(l){ e.preventDefault(); rot3(-1); } else if(r){ e.preventDefault(); rot3(1); } });
+/* the first look, for a guest (3D view only; 2D is the page as it was): the scene first, then the few controls a guest needs, the rest tucked away.
+   Nothing is removed or renamed in the page itself: this only reorders (CSS order under body.v3), hides five dials behind "More settings",
+   labels the toolbar groups, and swaps the one-line tagline, all undone when the view returns to 2D. */
+const DIALS=document.querySelector(".dials"), SUBP=document.querySelector("header .sub"), SUB0=SUBP.textContent;
+const SUB3="Every car sits on its own platform. Click one, press Retrieve, and watch the floor slide out of its way.";
+DIALS.parentNode.id="dialsPanel";
+for(const id of ["dCars","cWall"]) $(id).closest("label").classList.add("keep");   // the two settings the demo uses: how full, and the wall rule
+(function(){ const bar=$("bGo").parentNode; $("cMs").nextElementSibling.classList.add("sp3");
+  const lab=(t,c)=>{ const s=document.createElement("span"); s.className="lab3 on3 "+c; s.style.display="none"; s.textContent=t; bar.appendChild(s); };
+  lab("TEST MANY","t1"); lab("SPEED","t2");
+  const mb=document.createElement("button"); mb.id="bMore3"; mb.className="on3"; mb.style.display="none"; mb.textContent="More settings ▾"; mb.title="Floor, lifts, fill, columns and demand";
+  mb.setAttribute("aria-expanded","false"); DIALS.appendChild(mb);
+  mb.onclick=()=>{ const o=DIALS.classList.toggle("open3"); mb.textContent=o?"Fewer settings ▴":"More settings ▾"; mb.setAttribute("aria-expanded",String(o)); }; })();
 function setView(v){ const want=v==="3d"; if(want&&!R3&&!init3()){ say("3D UNAVAILABLE","This browser can't draw the 3D view","The 2D view still works.",true); return; }
-  view3=want; cv.style.display=want?"none":"block"; cv3.style.display=want?"block":"none"; if(STAGE3) STAGE3.style.display=want?"block":"none"; legend3(want); hud3();
+  view3=want; cv.style.display=want?"none":"block"; cv3.style.display=want?"block":"none"; if(STAGE3) STAGE3.style.display=want?"block":"none"; legend3(want); hud3(); prm3(true);
   $("bV2").setAttribute("aria-pressed",String(!want)); $("bV3").setAttribute("aria-pressed",String(want));
   document.querySelectorAll(".on3").forEach(el=>{ el.style.display=want?"":"none"; });
+  SUBP.textContent=want?SUB3:SUB0; $("bTheme").textContent=want?"Page light / dark":"Theme"; if(want) $("bTheme").title="Switches the page around the scene between light and dark. The Night / Day button on the scene changes the scene itself."; else $("bTheme").removeAttribute("title");
   if(want){ fit3(); draw3(); } }
 $("bV2").onclick=()=>setView("2d"); $("bV3").onclick=()=>setView("3d"); $("bRotL").onclick=()=>rot3(-1); $("bRotR").onclick=()=>rot3(1);
 $("bLook").onclick=()=>setLook(LOOK==="night"?"day":"night"); $("bLook").textContent=LOOKS[LOOK].label;
