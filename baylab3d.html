@@ -674,15 +674,16 @@ function fit(){ const w=cv.parentElement.clientWidth-32, cw=Math.max(320,Math.mi
 
 /* ================= 3D view (A4) =================
    A second renderer for the same state. It reads cars, blocked, lifts, anim, last, tgt, sel and playing and never writes
-   them, so the simulation, the planner and every number are exactly those of the 2D page. draw() calls draw3() only
+   them, except that a click on a car sets sel, tgt and last exactly as the 2D click handler does; the simulation, the planner
+   and every number are exactly those of the 2D page. draw() calls draw3() only
    while the 3D view is on; the 2D canvas keeps drawing underneath, so 2D is always one click away.
    Look: a true isometric (orthographic) camera with four quarter-turn angles; low supercar-wedge cars; a spotlight during a
    retrieval (cars not involved fade back, moving platforms leave a trail, a turn shows its 3 x 3 block). Two palettes share
    one scene: Night (obsidian, champagne, neon) and Day (dusk pastel, for a bright room or a projector). */
 const cv3=$("cv3");
 let view3=false, R3=null, S3=null, CAM3=null, SUN3=null, HEMI3=null, STAT3=null, P3=null, FX3=null, SEL3=null, UNIT3=null, FLAT3=null, TEX3=null, PC=null;
-let D3=null, M3=null, T3=null, CA3=null;
-const V3={az:Math.PI/4, azTo:Math.PI/4, tx:0, tz:0, zoom:1, key:"", dim:0, busy:false, raf:0, last:0, aspect:2, hover:false, fades:[], cur:[]};
+let D3=null, M3=null, T3=null, CA3=null, RAY3=null, NDC3=null, PT3=null, PLANE0=null;
+const V3={az:Math.PI/4, azTo:Math.PI/4, tx:0, tz:0, zoom:1, key:"", dim:0, busy:false, raf:0, last:0, aspect:2, hover:false, fades:[], cur:[], ids:[], hot:-1, hoverRaf:0};
 const EL3=Math.atan(1/Math.SQRT2), CAP3=256, TILE3=1024;   // 35.26 degrees: true isometric
 // the palettes: the scene, the backdrop, the effects and the legend all read from the look in use
 const LOOKS={
@@ -765,6 +766,7 @@ function init3(){
     FX3={ tile:fx(TEX3.tile,TILE3,1), trail:fx(TEX3.trail,CAP3,2), halo:fx(TEX3.radial,CAP3,3), turn:fx(TEX3.turn,CAP3,4) };
     SEL3=new THREE.Group(); for(let i=0;i<4;i++) SEL3.add(new THREE.Mesh(UNIT3,new THREE.MeshBasicMaterial())); SEL3.visible=false; S3.add(SEL3);
     D3=new THREE.Object3D(); M3=new THREE.Matrix4(); T3=new THREE.Matrix4(); CA3=new THREE.Color();
+    RAY3=new THREE.Raycaster(); NDC3=new THREE.Vector2(); PT3=new THREE.Vector3(); PLANE0=new THREE.Plane(new THREE.Vector3(0,1,0),0);   // for picking a car with the mouse
     paintLook();
     return true;
   }catch(e){ console.error("3D view failed to start",e); R3=null; return false; }
@@ -852,8 +854,10 @@ function draw3(){
     P3.cab.setMatrixAt(n,T3.multiplyMatrices(M3,P3.local.cab)); P3.cab.setColorAt(n,mixc(PC.glass,f));
     for(let j=0;j<4;j++){ P3.wheel.setMatrixAt(n*4+j,T3.multiplyMatrices(M3,P3.local.wheels[j])); P3.wheel.setColorAt(n*4+j,mixc(PC.wheel,f)); }
     for(let j=0;j<2;j++){ P3.line.setMatrixAt(n*2+j,T3.multiplyMatrices(M3,P3.local.lines[j])); P3.line.setColorAt(n*2+j,mixc(j?PC.lineRear:PC.lineFront,f)); }
-    n++;
-    if((isT||isMov)&&nh<CAP3){ FX3.halo.setMatrixAt(nh,T3.multiplyMatrices(M3,P3.local.halo)); FX3.halo.setColorAt(nh,isT?(refusedNow?PC.haloRefused:PC.haloTarget):PC.haloMove); nh++; }
+    V3.ids[n]=i; n++;   // instance n is car i, so a click can be mapped back to its car
+    const isSel=i===sel, isHot=i===V3.hot&&!isT&&!isMov&&!isSel;   // chosen with a click / under the mouse
+    if((isT||isMov||isSel||isHot)&&nh<CAP3){ FX3.halo.setMatrixAt(nh,T3.multiplyMatrices(M3,P3.local.halo));
+      FX3.halo.setColorAt(nh,isT?(refusedNow?PC.haloRefused:PC.haloTarget):isMov?PC.haloMove:isSel?PC.haloTarget:CA3.copy(PC.haloTarget).lerp(PC.floorTop,.55)); nh++; }
     if(m&&!m.rot){   // a trail over the floor this platform has just left, from its rear edge at the start to its rear edge now
       const off=Math.min(t,m.d)*m.s, Ln=Math.abs(off), dir=m.s>0?1:-1;
       if(Ln>.12&&nt<CAP3){ const along=-dir*1.5+off/2, px=k.v?bx:bx+along, pz=k.v?bz+along:bz, phi=k.v?-dir*Math.PI/2:(dir>0?0:Math.PI);
@@ -896,12 +900,28 @@ function setLook(name){ if(!LOOKS[name]) return; LOOK=name; PAL=LOOKS[name].pal;
 function rot3(dir){ V3.azTo+=dir*Math.PI/2; kick3(); }
 function pan3(dx,dy){ const wpp=(CAM3.right-CAM3.left)/CAM3.zoom/Math.max(1,cv3.clientWidth), sa=Math.sin(V3.az), ca=Math.cos(V3.az), se=Math.sin(EL3);
   V3.tx=Math.max(-W/2,Math.min(W/2,V3.tx-dx*wpp*ca-dy*(wpp/se)*sa)); V3.tz=Math.max(-H/2,Math.min(H/2,V3.tz+dx*wpp*sa-dy*(wpp/se)*ca)); render3(); }
+// picking: the car under a screen point, found by casting a ray at the platform, body and canopy of every car (nearest hit wins)
+function ndc3(cx,cy){ const r=cv3.getBoundingClientRect(); NDC3.set((cx-r.left)/r.width*2-1,-((cy-r.top)/r.height)*2+1); RAY3.setFromCamera(NDC3,CAM3); return r.width>0&&r.height>0; }
+function hit3(cx,cy){ if(!ndc3(cx,cy)) return -1; let best=null;
+  for(const m of [P3.plat,P3.body,P3.cab]){ m.boundingSphere=null; const h=RAY3.intersectObject(m,false)[0]; if(h&&(!best||h.distance<best.distance)) best=h; }   // the cached sphere goes stale as cars move
+  return best?V3.ids[best.instanceId]:-1; }
+function pick3(cx,cy){   // the same three assignments the 2D click handler makes
+  if(playing||!R3||!view3) return;
+  const i=hit3(cx,cy);
+  if(i<0){ const p=RAY3.ray.intersectPlane(PLANE0,PT3); if(!p||p.x<0||p.x>W||p.z<0||p.z>H) return; }   // empty floor clears the choice; off the floor does nothing
+  sel=i; tgt=-1; last=null; V3.hot=-1; draw(); stats();
+  if(sel>=0) say("CHOSEN","This car will be retrieved","Press Retrieve.",false); }
+function hover3(cx,cy){ if(playing||!R3||!view3||V3.hoverRaf) return;
+  V3.hoverRaf=requestAnimationFrame(()=>{ V3.hoverRaf=0; if(playing||!view3) return; const i=hit3(cx,cy); cv3.style.cursor=i>=0?"pointer":"default"; if(i!==V3.hot){ V3.hot=i; draw3(); } }); }
 let drag3=null;
-cv3.addEventListener("pointerdown",e=>{ try{ cv3.setPointerCapture(e.pointerId); }catch(_){} drag3={x0:e.clientX,x:e.clientX,y:e.clientY}; });
-cv3.addEventListener("pointermove",e=>{ if(!drag3) return; const dx=e.clientX-drag3.x, dy=e.clientY-drag3.y; drag3.x=e.clientX; drag3.y=e.clientY; if(V3.zoom>1.02) pan3(dx,dy); });
-cv3.addEventListener("pointerup",()=>{ if(drag3&&V3.zoom<=1.02){ const dx=drag3.x-drag3.x0; if(Math.abs(dx)>90) rot3(dx>0?1:-1); } drag3=null; });   // a long sideways swipe turns the view
+cv3.addEventListener("pointerdown",e=>{ try{ cv3.setPointerCapture(e.pointerId); }catch(_){} drag3={sx:e.clientX,sy:e.clientY,x:e.clientX,y:e.clientY}; });
+cv3.addEventListener("pointermove",e=>{ if(!drag3){ hover3(e.clientX,e.clientY); return; } const dx=e.clientX-drag3.x, dy=e.clientY-drag3.y; drag3.x=e.clientX; drag3.y=e.clientY; if(V3.zoom>1.02) pan3(dx,dy); });
+cv3.addEventListener("pointerup",e=>{ if(!drag3) return; const dx=e.clientX-drag3.sx, dy=e.clientY-drag3.sy; drag3=null;
+  if(Math.hypot(dx,dy)<6) pick3(e.clientX,e.clientY);                     // a click chooses the car under it
+  else if(V3.zoom<=1.02&&Math.abs(dx)>90) rot3(dx>0?1:-1); });            // a long sideways swipe turns the view
 cv3.addEventListener("pointercancel",()=>{ drag3=null; });
-cv3.addEventListener("pointerenter",()=>{ V3.hover=true; }); cv3.addEventListener("pointerleave",()=>{ V3.hover=false; });
+cv3.addEventListener("pointerenter",()=>{ V3.hover=true; });
+cv3.addEventListener("pointerleave",()=>{ V3.hover=false; V3.hot=-1; cv3.style.cursor="default"; if(view3) draw3(); });
 cv3.addEventListener("wheel",e=>{ if(!(e.ctrlKey||e.metaKey)) return; e.preventDefault();
   V3.zoom=Math.min(4,Math.max(1,V3.zoom*Math.exp(-e.deltaY*.002))); if(V3.zoom<=1.001){ V3.tx=0; V3.tz=0; } render3(); },{passive:false});
 cv3.addEventListener("dblclick",()=>{ V3.zoom=1; V3.tx=0; V3.tz=0; V3.azTo=Math.PI/4+Math.PI*2*Math.round((V3.az-Math.PI/4)/(Math.PI*2)); kick3(); render3(); });
